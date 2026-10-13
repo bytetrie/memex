@@ -1,0 +1,6 @@
+/* CSS grid instead of Mantine SimpleGrid/Grid, which inject runtime <style>. */
+.items {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+  grid-template-columns: repeat(auto-fill, minmax(rem(220px), 1fr));
+}

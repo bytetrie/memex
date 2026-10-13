@@ -1,0 +1,10 @@
+/* TeX Gyre Heros (GUST Font License), converted from font/texgyre by
+   scripts/build-fonts.sh. Files live in web/public/fonts.
+   The metric overrides recentre the glyphs in the line box (and keep the content
+   area tall enough that inputs do not clip descenders): the font's own
+   ascent/descent (729/216) leave capitals sitting high next to icons. */
+
+@font-face { font-family: "TeX Gyre Heros"; src: url("/fonts/texgyreheros-regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; ascent-override: 94%; descent-override: 22%; line-gap-override: 0%; }
+@font-face { font-family: "TeX Gyre Heros"; src: url("/fonts/texgyreheros-italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; ascent-override: 94%; descent-override: 22%; line-gap-override: 0%; }
+@font-face { font-family: "TeX Gyre Heros"; src: url("/fonts/texgyreheros-bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; ascent-override: 94%; descent-override: 22%; line-gap-override: 0%; }
+@font-face { font-family: "TeX Gyre Heros"; src: url("/fonts/texgyreheros-bolditalic.woff2") format("woff2"); font-weight: 700; font-style: italic; font-display: swap; ascent-override: 94%; descent-override: 22%; line-gap-override: 0%; }
