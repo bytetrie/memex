@@ -16,6 +16,7 @@ Design notes for upcoming features live in [ideas/](ideas/).
 | Logging | pino: JSON lines on stdout, into journald | `server.ts` |
 | UI | React 19 + Mantine 9 | `web/src/` |
 | Routing | TanStack Router, code-based route tree | `web/src/router.tsx` |
+| Notes editor | Tiptap 3 (MIT community packages) for pages; Excalidraw 0.18 for drawings; both lazy chunks | `web/src/modules/notes/editor/`, `web/src/modules/notes/drawing/` |
 | Bundler | Vite, builds `web/` into `static/` | `vite.config.ts` |
 | Icons | Font Awesome glyphs built into a font by Fontello | `web/icons/fontello.json` |
 | Text font | TeX Gyre Heros as WOFF2 | `font/texgyre/` → `web/public/fonts/` |
@@ -38,15 +39,19 @@ src/shared/archive*.ts    the archive's schemas; archive-types.ts holds the type
                           archive-jobs.ts the job shapes
 src/shared/runners.ts     the app <-> runner protocol (requests, events, ports)
 src/shared/vtt.ts         WebVTT -> transcript cues (server search text, browser transcript)
+src/shared/notes*.ts      notes API shapes (notes.ts); notes-doc.ts: node names, DocSchema, analyzeDoc()
+src/shared/tags.ts        the tag rule shared by archive and notes
 src/server/app.ts         Hono routes (createApp); exports AppType; request log, errors, /openapi.json
 src/server/validate.ts    validate(target, schema) middleware (also feeds the OpenAPI spec)
 src/server/openapi.ts     docs(tag, summary, responses) for every route
 src/server/types.ts       Logger + AppEnv (node-free)
 src/server/modules.ts     placeholder data for the sidebar components
-src/server/db/            drizzle schema.ts (all tables), client.ts, migrate.ts
+src/server/search.ts      search box parsing (words + #tags -> tsquery), used by archive and notes
+src/server/db/            drizzle schema.ts (all tables), client.ts, migrate.ts, pg.ts (repo helpers)
 src/server/archive/       the archive: ports.ts (interfaces), repo.ts (drizzle), routes.ts, gc.ts,
-                          http.ts, search.ts, types/ (one handler per archive type + registry);
+                          http.ts, types/ (one handler per archive type + registry);
                           jobs: job-repo.ts, job-routes.ts, jobs.ts (the worker)
+src/server/notes/         notes: ports.ts, repo.ts (drizzle), routes.ts, gc.ts (detached drawings)
 src/server/node/          node-only implementations passed in through AppDeps (blob-store.ts,
                           incoming.ts, runner-client.ts); child-process.ts, the only place
                           processes start (scripts and runners use it)
@@ -63,6 +68,8 @@ web/src/theme.ts          Mantine theme (plain data)
 web/src/components/       shared components (Shell = sidebar layout)
 web/src/modules/<id>/     one folder per sidebar component (route.tsx, ...)
 web/src/modules/archive/  list.tsx, entry.tsx, new.tsx, JobList.tsx + types/ (one add form per archive type)
+web/src/modules/notes/    layout.tsx (pane), page.tsx, autosave.ts, editor/ (Tiptap: extensions.ts,
+                          nodes/, menus), embeds/ (one per archive type), drawing/ (Excalidraw chunk)
 web/src/pages/            routes that are not sidebar components (home)
 web/src/icons/            Icon component + GENERATED icons.css, names.ts
 web/public/fonts/         GENERATED woff2 files (committed)
@@ -201,6 +208,12 @@ HTML. Consequences:
   on them.
 - Never add `'unsafe-inline'` to fix a violation. Changing the CSP is a decision
   for the user.
+- Known cases, handled (details in [ideas/notes.md](ideas/notes.md)): Tiptap editors are created
+  with `injectCSS: false` (their base CSS is in `editor/Editor.module.css`); Mantine `Modal` needs
+  `lockScroll={false}` (the scroll lock injects a `<style>`); Excalidraw's fonts are self-hosted
+  and its esm.sh fallback is rewritten at build (`vite.config.ts`), and its image export (which
+  needs `'unsafe-eval'`) is hidden. Runtime injections like these only show in the browser:
+  `pnpm check:csp` renders on the server, so the e2e console check is what catches them.
 
 ## Recipes
 
@@ -351,6 +364,7 @@ Example: `webpage`. A type is a server handler and a form; `tsc` lists whatever 
 4. `web/src/modules/archive/types/webpage/AddForm.tsx`: a form that ends with `createEntry(...)`
    and navigates to the entry (copy `text/AddForm.tsx`). Optionally a `View.tsx` for a custom page body.
 5. `web/src/modules/archive/types/index.ts`: register label, icon (see "Icons") and form.
+   `web/src/modules/notes/embeds/index.ts`: pick how it shows embedded in a note page (tsc asks).
 6. Tests: the handler's pure parts as unit tests, and one case in `src/server/archive/archive.test.ts`.
    Then the "done means" checks.
 
@@ -374,6 +388,53 @@ Example: `webpage` fetched from the internet. `video` is the worked example
 4. The form calls `createJob(...)` and shows `JobList` / `useJobs` (see `video/AddForm.tsx`).
 5. Tests: fake runners in the harness (`h.runners.handle(name, fn)`, see
    `src/server/archive/jobs.test.ts`), plus the runner script's own test.
+
+## Notes
+
+The notes (`/notes` in the app) are editable pages: a Tiptap block editor, page + tag navigation,
+links between pages and blocks, archive embeds and Excalidraw drawings. Design and every decision:
+[ideas/notes.md](ideas/notes.md).
+
+- **Notes and the archive are separate systems.** Notes keep all their data in `notes_*` tables
+  and never write entries, files or blobs into the archive. A page only *references* entries (an
+  embed or a link); saving a page sets its archive refs (`module "notes"`, `itemId` the page id)
+  through the archive-owned `setRefs()` in `src/server/archive/repo.ts`. Don't touch
+  `archive_refs` from notes code, and don't store notes' own files (images...) in the archive.
+- **Agents**: the API is under `/api/notes` (pages, tags, blocks, backlinks, drawings; see
+  `/api/openapi.json`). A page's `doc` is ProseMirror JSON; node names and attributes are listed in
+  `src/shared/notes-doc.ts` (`NOTE_NODES`). Saving needs the page's `version` as `baseVersion`
+  (409 with the current `version` otherwise). A video embed may carry `bookmarks: [{ t: seconds,
+  label }]` (`VideoBookmarkSchema`); where a video was left playing is per browser, not in the doc.
+- **The doc is the source of truth.** Blocks, links, backlinks, drawing use and archive refs are
+  rebuilt from it by `analyzeDoc()` on every save; never write those tables directly.
+- **Performance rules** (the spec's): the editor owns the document (never controlled from React
+  state, `shouldRerenderOnTransaction: false`); text blocks get no node views; inline nodes use
+  plain DOM node views; only heavy embeds are React node views, memoised on their id and mounted
+  near the viewport; nothing re-renders an embed while typing (`e2e/notes.spec.ts` checks the DOM
+  node survives). Lists of pages and backlinks are static text, never editors.
+- **Don't `router.invalidate()` to refresh notes data while a page is open**: TanStack Router treats
+  the re-render as a navigation and scrolls to the top. The pane refetches on `pagesChanged()`
+  (`web/src/modules/notes/events.ts`).
+- e2e tests title their pages and entries `e2e-<random>` and delete them afterwards, pages first.
+
+### Add a block type to notes
+Example: a `callout` block.
+1. `src/shared/notes-doc.ts`: add its name to `NOTE_NODES`; if it can be linked to, add it to
+   `BLOCK_TYPES`; if it references something (a page, an entry), teach `analyzeDoc()` to report it.
+2. `web/src/modules/notes/editor/nodes/callout.ts(x)`: `Node.create({ name: NOTE_NODES.callout, ... })`.
+   Text-like blocks: `renderHTML` only, no node view. Heavy ones: a React node view whose content
+   is a `memo` component keyed on its attributes, `stopEvent` for its interactive part, and
+   `useNearViewport` to mount lazily (copy `ArchiveEmbed.tsx`).
+3. `web/src/modules/notes/editor/extensions.ts`: add it to the list; for a `/` command, add an
+   entry in `slashCommands()` (`editor/suggestions.ts`).
+4. Styles in `editor/Editor.module.css`. Tests: `src/shared/notes-doc.test.ts` for what
+   `analyzeDoc()` reads, and a step in `e2e/notes.spec.ts`.
+
+### Add an archive embed for a type
+`web/src/modules/notes/embeds/index.ts` maps every archive type to a component getting the whole
+`entry` (`TextEmbed` reads a file excerpt, `VideoEmbed` reuses the archive's player). It mounts only
+near the viewport and stays mounted. Read files with `getFileText` / `fileUrl`; never render a
+file's content as HTML.
 
 ## Infrastructure notes
 - `infra/Caddyfile` is project-owned (`caddy.manage_caddyfile = false` in

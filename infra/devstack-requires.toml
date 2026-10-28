@@ -27,6 +27,17 @@ image = "images:debian/13"
 # every agent running as it, is root in the container; needs your OK). 'none': no sudo.
 # Root for you is always `incus exec <container> -- bash` from the host.
 sudo = "limited"
+# Long-running services from a pinned download, e.g. a local model server. Each entry:
+# name, url (https), sha256 (of the download, checked before use), command (its first
+# word a path inside the download, e.g. 'bin/ollama serve'), and optionally port
+# (127.0.0.1 only), profile ('local': loopback only, the default; 'internet'), gpu
+# (default false; needs gpu.enabled), env (a table of environment variables),
+# write_paths (container.mounts paths it may write; everything else is read-only) and
+# memory_max. Each runs as its own system user, <stack.name>-<name>, under a hardened
+# unit and an egress profile; the download is installed root-owned under
+# /opt/devstack/services, so nothing the container user can edit runs as the service. A
+# new or changed service needs your OK.
+services = []
 
 [gpu]
 # Pass the host GPU into the container.

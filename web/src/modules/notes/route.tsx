@@ -1,15 +1,8 @@
-// Notes: placeholder page. Replace ModulePage with this component's own UI.
+// Notes: pages with a block editor, page and tag navigation, links between pages and blocks,
+// archive embeds and drawings. Design: ideas/notes.md.
 
-import { createRoute } from "@tanstack/react-router";
-import { getModule } from "../../api.ts";
-import { ModulePage } from "../../components/ModulePage.tsx";
-import { rootRoute } from "../../root.tsx";
+import { notesIndexRoute } from "./index.tsx";
+import { notesLayout } from "./layout.tsx";
+import { pageRoute } from "./page.tsx";
 
-export const notesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/notes",
-  loader: () => getModule("notes"),
-  component: function NotesPage() {
-    return <ModulePage module={notesRoute.useLoaderData()} />;
-  },
-});
+export const notesRoute = notesLayout.addChildren([notesIndexRoute, pageRoute]);

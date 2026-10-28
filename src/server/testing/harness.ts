@@ -16,6 +16,8 @@ import type { ArchiveDeps } from "../archive/ports.ts";
 import type { Db } from "../db/client.ts";
 import { createBlobStore } from "../node/blob-store.ts";
 import { createIncomingStore } from "../node/incoming.ts";
+import type { NotesDeps } from "../notes/ports.ts";
+import { createNotesRepo } from "../notes/repo.ts";
 import type { Logger } from "../types.ts";
 import { fakeRunners } from "./fake-runners.ts";
 import { connectTestDb, truncateAll } from "./test-db.ts";
@@ -25,6 +27,7 @@ export const silentLogger: Logger = { info() {}, warn() {}, error() {}, child: (
 export type Harness = {
   db: Db;
   archive: ArchiveDeps;
+  notes: NotesDeps;
   dir: string;
   // The runners' output folder (a temp dir); fake runners write their files here.
   incomingDir: string;
@@ -42,7 +45,7 @@ export type Harness = {
 
 export function useHarness(): Harness {
   let connection: ReturnType<typeof connectTestDb> | undefined;
-  let current: Pick<Harness, "archive" | "dir" | "app" | "incomingDir" | "worker"> | undefined;
+  let current: Pick<Harness, "archive" | "notes" | "dir" | "app" | "incomingDir" | "worker"> | undefined;
   const runners = fakeRunners();
   const inTest = <T>(value: T | undefined): T => {
     if (value === undefined) throw new Error("the harness is only ready inside a test");
@@ -63,7 +66,8 @@ export function useHarness(): Harness {
     const base = { repo: createArchiveRepo(db), blobs: createBlobStore(join(dir, "store")), jobs: createJobRepo(db), incoming: createIncomingStore(incomingDir) };
     const worker = createJobWorker({ ...base, runners: runners.client, log: silentLogger });
     const archive: ArchiveDeps = { ...base, worker };
-    current = { dir, incomingDir, worker, archive, app: createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(true), log: silentLogger, archive }) };
+    const notes: NotesDeps = { repo: createNotesRepo(db) };
+    current = { dir, incomingDir, worker, archive, notes, app: createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(true), log: silentLogger, archive, notes }) };
   });
   afterEach(async () => {
     const { worker, dir } = inTest(current);
@@ -79,6 +83,9 @@ export function useHarness(): Harness {
     },
     get archive() {
       return inTest(current).archive;
+    },
+    get notes() {
+      return inTest(current).notes;
     },
     get dir() {
       return inTest(current).dir;

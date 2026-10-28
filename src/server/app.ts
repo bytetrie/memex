@@ -12,6 +12,8 @@ import { HealthSchema, ModuleSchema, PlaceholderModuleIdSchema, type Health } fr
 import { createArchiveRoutes } from "./archive/routes.ts";
 import { ArchiveError, type ArchiveDeps, type ArchiveErrorCode } from "./archive/ports.ts";
 import { modules } from "./modules.ts";
+import { NotesError, type NotesDeps, type NotesErrorCode } from "./notes/ports.ts";
+import { createNotesRoutes } from "./notes/routes.ts";
 import { docs, json } from "./openapi.ts";
 import type { AppEnv, Logger } from "./types.ts";
 import { validate } from "./validate.ts";
@@ -23,6 +25,7 @@ export type AppDeps = {
   dbReachable: () => Promise<boolean | null>;
   log: Logger;
   archive: ArchiveDeps;
+  notes: NotesDeps;
 };
 
 const archiveErrorStatus = {
@@ -35,6 +38,11 @@ const archiveErrorStatus = {
   queue_full: 429,
   wrong_mode: 400,
 } as const satisfies Record<ArchiveErrorCode, number>;
+
+const notesErrorStatus = {
+  not_found: 404,
+  version_conflict: 409,
+} as const satisfies Record<NotesErrorCode, number>;
 
 // JSON bodies are parsed in memory, so they get a small limit: the biggest one is a `text` entry
 // (TEXT_MAX_LENGTH characters, a few bytes each when escaped). Files go through PUT /archive/blobs.
@@ -74,6 +82,10 @@ export function createApp(deps: AppDeps) {
       if (err.code === "conflict" && typeof err.detail === "object" && err.detail !== null) return c.json({ ...err.detail, error: err.message }, status);
       return c.json({ error: err.message }, status);
     }
+    if (err instanceof NotesError) {
+      if (err.code === "version_conflict") return c.json({ error: err.message, version: err.detail }, notesErrorStatus[err.code]);
+      return c.json({ error: err.message }, notesErrorStatus[err.code]);
+    }
     // e.g. a request body that is not valid JSON
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
     c.var.log.error({ err }, "unhandled error"); // set by the first middleware, before anything can throw
@@ -94,6 +106,7 @@ export function createApp(deps: AppDeps) {
       (c) => c.json(modules[c.req.valid("param").id]),
     )
     .route("/archive", createArchiveRoutes(deps.archive))
+    .route("/notes", createNotesRoutes(deps.notes))
     .get(
       "/openapi.json",
       docs("app", "OpenAPI description of this API", { 200: { description: "OpenAPI 3.1 document" } }),

@@ -1,0 +1,210 @@
+/* Layout of the notes pages: the page centred in the view, the pane (search, tags, pages) on
+   the left over the same grid cell. The page keeps clear of the pane: it is centred when there
+   is room, otherwise it starts right after it. Folding the pane leaves room for its button only.
+   Plain grid (no Mantine AppShell/Grid, which inject runtime <style> tags the CSP blocks). */
+
+.layout {
+  --pane-w: rem(260px);
+  --pane-gap: var(--mantine-spacing-xl);
+  --pane-space: calc(var(--pane-w) + var(--pane-gap));
+  --content-w: rem(820px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.layout[data-pane="closed"] {
+  --pane-space: rem(56px);
+}
+
+.pane,
+.unfold,
+.content {
+  grid-area: 1 / 1;
+}
+
+.pane {
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: var(--mantine-spacing-md);
+  align-self: start;
+  width: var(--pane-w);
+  position: sticky;
+  top: var(--mantine-spacing-md);
+  max-height: calc(100dvh - 2 * var(--mantine-spacing-md));
+  overflow-y: auto;
+}
+
+.unfold {
+  z-index: 1;
+  align-self: start;
+  justify-self: start;
+  position: sticky;
+  top: var(--mantine-spacing-md);
+}
+
+.content {
+  min-width: 0;
+  width: min(var(--content-w), 100% - var(--pane-space));
+  margin-left: max(var(--pane-space), (100% - var(--content-w)) / 2);
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .pane,
+  .unfold {
+    grid-area: auto;
+    position: static;
+    width: auto;
+    max-height: none;
+  }
+
+  .content {
+    grid-area: auto;
+    width: auto;
+    margin-left: 0;
+  }
+}
+
+.grow {
+  flex: 1;
+}
+
+.tagBadge {
+  cursor: pointer;
+}
+
+.list {
+  display: grid;
+  gap: rem(2px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pageItem {
+  display: flex;
+  align-items: center;
+  border-radius: var(--mantine-radius-sm);
+
+  @mixin hover {
+    background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  }
+}
+
+/* The ⋮ menu shows on hover and keyboard focus (and always on touch screens). */
+.pageMenu {
+  flex: none;
+  opacity: 0;
+}
+
+.pageItem:hover .pageMenu,
+.pageItem:focus-within .pageMenu,
+.pageMenu[aria-expanded="true"] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .pageMenu {
+    opacity: 1;
+  }
+}
+
+.pageLink {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: rem(4px) var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @mixin hover {
+    text-decoration: none;
+  }
+}
+
+.pageItem:has(.pageLink[aria-current="page"]) {
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.15));
+}
+
+.pageLink[aria-current="page"] {
+  font-weight: 500;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Room below the end of the page, so its last lines can be scrolled up to eye level. */
+.page {
+  padding-bottom: 60vh;
+}
+
+.pageHead {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Heading-sized text in a Mantine input: the input is normally a fixed height for its size
+   (--input-height, line height to match), which cut off the bottom of the bigger letters. Its
+   height follows the text instead. */
+.title input {
+  height: auto;
+  min-height: 0;
+  padding-block: rem(4px);
+  font-size: var(--mantine-h1-font-size);
+  font-weight: 700;
+  line-height: var(--mantine-h1-line-height);
+}
+
+.section {
+  margin-top: var(--mantine-spacing-xl);
+}
+
+/* Backlinks: one line per linking page, then one short line per place it links from. */
+.backlinks {
+  display: grid;
+  gap: rem(6px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.backlinkRefs {
+  display: grid;
+  margin: 0;
+  padding: 0 0 0 var(--mantine-spacing-sm);
+  border-left: rem(2px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  list-style: none;
+}
+
+.backlinkRef {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.5;
+}
+
+.excerpt {
+  margin: 0;
+  max-height: rem(320px);
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: inherit;
+}

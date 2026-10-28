@@ -2,6 +2,7 @@
 // Every method rejects unless overridden; tsc lists what is missing when a port grows.
 
 import type { ArchiveRepo, BlobStore, IncomingStore, JobControl, JobRepo } from "../archive/ports.ts";
+import type { NotesRepo } from "../notes/ports.ts";
 
 const unused = (name: string) => () => Promise.reject(new Error(`stub: ${name} is not available`));
 
@@ -63,6 +64,25 @@ export function stubIncoming(overrides: Partial<IncomingStore> = {}): IncomingSt
     head: unused("incoming.head"),
     removeDir: unused("incoming.removeDir"),
     sweep: unused("incoming.sweep"),
+    ...overrides,
+  };
+}
+
+export function stubNotesRepo(overrides: Partial<NotesRepo> = {}): NotesRepo {
+  return {
+    createPage: unused("notes.createPage"),
+    getPage: unused("notes.getPage"),
+    listPages: unused("notes.listPages"),
+    savePage: unused("notes.savePage"),
+    setTags: unused("notes.setTags"),
+    deletePage: unused("notes.deletePage"),
+    backlinks: unused("notes.backlinks"),
+    searchBlocks: unused("notes.searchBlocks"),
+    tagCounts: unused("notes.tagCounts"),
+    createDrawing: unused("notes.createDrawing"),
+    getDrawing: unused("notes.getDrawing"),
+    saveDrawing: unused("notes.saveDrawing"),
+    deleteDetachedDrawings: unused("notes.deleteDetachedDrawings"),
     ...overrides,
   };
 }

@@ -1,36 +1,16 @@
 // The archive's queries (drizzle). Implements ArchiveRepo from ports.ts; only
 // server.ts and tests import this file, so app.ts stays free of the DB driver.
 
-import { and, desc, eq, exists, inArray, isNull, lt, lte, notExists, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, lt, lte, notExists, notInArray, sql, type SQL } from "drizzle-orm";
 // Enum columns are plain text in Postgres; their values are parsed on the way out.
 import { ModuleIdSchema } from "../../shared/api.ts";
 import { FileRoleSchema, type ArchiveFile, type ArchiveRef, type Entry, type EntrySummary } from "../../shared/archive.ts";
 import { ArchiveTypeIdSchema } from "../../shared/archive-types.ts";
-import type { Db } from "../db/client.ts";
+import type { Db, Tx } from "../db/client.ts";
+import { FOREIGN_KEY, iso, pgCode, single, UNIQUE, uniqueSorted } from "../db/pg.ts";
 import { archiveBlobs, archiveEntries, archiveFiles, archiveRefs, archiveSearches, archiveTags } from "../db/schema.ts";
 import { ArchiveError, type ArchiveRepo, type NewFile } from "./ports.ts";
-import { parseSearch, toTsQuery } from "./search.ts";
-
-// drizzle wraps driver errors; the Postgres SQLSTATE sits on the error or its cause.
-function pgCode(err: unknown): string | undefined {
-  for (let e = err; e && typeof e === "object"; e = (e as { cause?: unknown }).cause) {
-    const code = (e as { code?: unknown }).code;
-    if (typeof code === "string") return code;
-  }
-  return undefined;
-}
-const FOREIGN_KEY = "23503";
-const UNIQUE = "23505";
-
-const iso = (d: Date) => d.toISOString();
-
-// The row a statement always returns (INSERT ... RETURNING, a row read back right after writing it).
-function single<T>(rows: T[]): T {
-  const [row] = rows;
-  if (row === undefined) throw new Error("expected a row, the statement returned none");
-  return row;
-}
-const uniqueSorted = (tags: string[]) => [...new Set(tags)].sort();
+import { parseSearch, toTsQuery } from "../search.ts";
 
 export function createArchiveRepo(db: Db): ArchiveRepo {
   const refsOf = async (id: string): Promise<ArchiveRef[]> =>
@@ -317,4 +297,19 @@ export function createArchiveRepo(db: Db): ArchiveRepo {
       }
     },
   };
+}
+
+// Makes `entryIds` the exact set of entries that a module's item uses, inside the caller's
+// transaction (notes call it when a page is saved or deleted). Ids of entries that don't exist
+// (deleted since the item started showing them) are skipped; FOR KEY SHARE keeps the others from
+// being deleted until the transaction ends. Returns the ids that got a ref.
+export async function setRefs(tx: Tx, module: ArchiveRef["module"], itemId: string, entryIds: string[]): Promise<string[]> {
+  const ids = [...new Set(entryIds)];
+  const existing = ids.length
+    ? (await tx.select({ id: archiveEntries.id }).from(archiveEntries).where(inArray(archiveEntries.id, ids)).for("key share")).map((r) => r.id)
+    : [];
+  const keep = and(eq(archiveRefs.module, module), eq(archiveRefs.itemId, itemId));
+  await tx.delete(archiveRefs).where(existing.length ? and(keep, notInArray(archiveRefs.entryId, existing)) : keep);
+  if (existing.length) await tx.insert(archiveRefs).values(existing.map((entryId) => ({ entryId, module, itemId }))).onConflictDoNothing();
+  return existing;
 }

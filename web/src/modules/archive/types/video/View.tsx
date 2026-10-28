@@ -1,17 +1,17 @@
-// Page body of a "video" entry: the HLS stream in a player (hls.js, loaded only on this page),
-// English captions, the details, the transcript (each line seeks the video), then the files.
+// Page body of a "video" entry: the player (Player.tsx, with English captions), the details,
+// the transcript (each line seeks the video), then the files.
 
-import { Alert, Text, Title, UnstyledButton } from "@mantine/core";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { Text, Title, UnstyledButton } from "@mantine/core";
+import { useEffect, useState, type ReactElement } from "react";
 import { z } from "zod";
 import { transcriptCues, type Cue } from "../../../../../../src/shared/vtt.ts";
-import { fileUrl, getFileText } from "../../../../api.ts";
+import { getFileText } from "../../../../api.ts";
 import classes from "../../Archive.module.css";
 import { formatDuration } from "../../format.ts";
 import { GenericView } from "../../GenericView.tsx";
 import type { ViewProps } from "../index.ts";
+import { playlistUrl, seekTo, usePlayer, VideoPlayer } from "./Player.tsx";
 
-const PLAYLIST = "hls/index.m3u8";
 const TRANSCRIPT_MAX_BYTES = 16 * 1024 ** 2;
 
 // The entry's meta as the video type writes it (src/server/archive/types/video.ts); every field optional.
@@ -23,42 +23,6 @@ const MetaSchema = z.object({
   height: z.number().nullish(),
   subtitles: z.enum(["manual", "automatic", "none"]).nullish(),
 });
-
-function usePlayer(src: string) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    let destroy = () => {};
-    let cancelled = false;
-    import("hls.js")
-      .then(({ default: Hls }) => {
-        if (cancelled) return;
-        if (Hls.isSupported()) {
-          const hls = new Hls();
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (data.fatal) setError(`The video can't be played (${data.details}).`);
-          });
-          hls.loadSource(src);
-          hls.attachMedia(video);
-          destroy = () => { hls.destroy(); };
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = src; // Safari plays HLS itself
-        } else {
-          setError("This browser can't play HLS video.");
-        }
-      })
-      .catch((err: unknown) => {
-        setError(`The player didn't load: ${err instanceof Error ? err.message : String(err)}`);
-      });
-    return () => {
-      cancelled = true;
-      destroy();
-    };
-  }, [src]);
-  return { videoRef, error };
-}
 
 function Transcript({ cues, onSeek }: { cues: Cue[]; onSeek: (seconds: number) => void }): ReactElement {
   return (
@@ -78,9 +42,7 @@ function Transcript({ cues, onSeek }: { cues: Cue[]; onSeek: (seconds: number) =
 }
 
 export function VideoView({ entry, previews }: ViewProps): ReactElement {
-  const names = new Set(entry.files.map((f) => f.name));
-  const src = fileUrl(entry.id, PLAYLIST);
-  const { videoRef, error } = usePlayer(src);
+  const player = usePlayer(playlistUrl(entry.id));
   const transcriptFile = entry.files.find((f) => f.mime === "text/vtt")?.name;
   const [cues, setCues] = useState<Cue[] | null>(null);
   const meta = MetaSchema.safeParse(entry.meta);
@@ -100,10 +62,8 @@ export function VideoView({ entry, previews }: ViewProps): ReactElement {
   }, [entry.id, transcriptFile]);
 
   const seek = (seconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = seconds;
-    void video.play().catch(() => undefined);
+    const video = player.videoRef.current;
+    if (video) seekTo(video, seconds);
   };
 
   const details = [
@@ -115,25 +75,7 @@ export function VideoView({ entry, previews }: ViewProps): ReactElement {
 
   return (
     <div className={classes.videoView}>
-      {names.has(PLAYLIST) ? (
-        <video
-          ref={videoRef}
-          className={classes.video}
-          controls
-          preload="metadata"
-          poster={names.has("poster.jpg") ? fileUrl(entry.id, "poster.jpg") : undefined}
-          aria-label={`Video: ${entry.title}`}
-        >
-          {transcriptFile && <track kind="subtitles" srcLang="en" label="English" src={fileUrl(entry.id, transcriptFile)} />}
-        </video>
-      ) : (
-        <Alert color="red">This entry has no video stream.</Alert>
-      )}
-      {error && (
-        <Alert color="red" title="Playback">
-          {error}
-        </Alert>
-      )}
+      <VideoPlayer entry={entry} player={player} />
       {details.length > 0 && (
         <Text size="sm" c="dimmed">
           {details.join(" · ")}

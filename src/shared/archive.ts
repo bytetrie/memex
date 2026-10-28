@@ -4,12 +4,12 @@
 import { z } from "zod";
 import { ArchiveTypeIdSchema, FileNameSchema, MimeSchema, Sha256Schema } from "./archive-types.ts";
 import { ModuleIdSchema } from "./api.ts";
+import { TagSchema, TagsSchema } from "./tags.ts";
+
+export { TagSchema, TagsSchema } from "./tags.ts";
 
 export const FileRoleSchema = z.enum(["original", "derived", "metadata", "thumbnail"]);
 export type FileRole = z.infer<typeof FileRoleSchema>;
-
-export const TagSchema = z.string().trim().toLowerCase().min(1).max(64);
-export const TagsSchema = z.array(TagSchema).max(50);
 
 export const BlobSchema = z.object({ sha256: Sha256Schema, size: z.number().int().nonnegative() });
 export type Blob = z.infer<typeof BlobSchema>;

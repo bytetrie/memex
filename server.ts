@@ -20,6 +20,8 @@ import { createJobRepo } from "./src/server/archive/job-repo.ts";
 import { createJobWorker } from "./src/server/archive/jobs.ts";
 import { createArchiveRepo } from "./src/server/archive/repo.ts";
 import { createDb } from "./src/server/db/client.ts";
+import { sweepNotes } from "./src/server/notes/gc.ts";
+import { createNotesRepo } from "./src/server/notes/repo.ts";
 import { runMigrations } from "./src/server/db/migrate.ts";
 import { createBlobStore } from "./src/server/node/blob-store.ts";
 import { createIncomingStore } from "./src/server/node/incoming.ts";
@@ -75,7 +77,9 @@ async function dbReachable(): Promise<boolean | null> {
   }
 }
 
-const app = createApp({ tokenOk, dbReachable, log, archive });
+const notes = { repo: createNotesRepo(db) };
+
+const app = createApp({ tokenOk, dbReachable, log, archive, notes });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port: PORT }, () => {
   log.info({ host: HOST, port: PORT }, "listening");
@@ -87,6 +91,9 @@ const HOUR = 60 * 60 * 1000;
 setInterval(() => {
   sweep({ ...archive, log }).catch((err: unknown) => {
     log.error({ err }, "gc failed");
+  });
+  sweepNotes({ ...notes, log }).catch((err: unknown) => {
+    log.error({ err }, "notes gc failed");
   });
 }, HOUR).unref();
 

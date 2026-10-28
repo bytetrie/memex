@@ -8,9 +8,10 @@
 import { createServer } from "vite";
 import { z } from "zod";
 import { createApp } from "../src/server/app.ts";
-import { idleWorker, stubBlobs, stubIncoming, stubJobs, stubRepo } from "../src/server/testing/stubs.ts";
+import { idleWorker, stubBlobs, stubIncoming, stubJobs, stubNotesRepo, stubRepo } from "../src/server/testing/stubs.ts";
 import type { Job } from "../src/shared/archive-jobs.ts";
 import type { Entry } from "../src/shared/archive.ts";
+import type { Page } from "../src/shared/notes.ts";
 
 // The archive routes render a fixture entry served from memory, so no database
 // or disk is needed. Every repo method the pages don't call fails loudly.
@@ -84,7 +85,36 @@ const log = { info() {}, warn() {}, error() {}, child: () => log };
 
 const jobs = stubJobs({ listJobs: () => Promise.resolve([failedJob]) });
 const archive = { repo, blobs, jobs, worker: idleWorker, incoming: stubIncoming() };
-const app = createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(null), log, archive });
+// A notes page with every kind of node (the editor itself is a lazy chunk, so the server render
+// shows its fallback; the browser checks run in e2e/notes.spec.ts).
+const PAGE_ID = "019a0000-0000-7000-8000-000000000004";
+const page: Page = {
+  id: PAGE_ID,
+  title: "Fixture page",
+  tags: ["fixture"],
+  version: 3,
+  createdAt: now,
+  updatedAt: now,
+  linkTitles: { [PAGE_ID]: "Fixture page" },
+  doc: {
+    type: "doc",
+    content: [
+      { type: "heading", attrs: { id: "h", level: 1 }, content: [{ type: "text", text: "Heading" }] },
+      { type: "paragraph", attrs: { id: "p" }, content: [{ type: "text", text: "See " }, { type: "pageLink", attrs: { pageId: PAGE_ID, label: "Fixture page" } }] },
+      { type: "archiveEmbed", attrs: { id: "e", entryId: FIXTURE_ID } },
+      { type: "drawing", attrs: { id: "d", drawingId: "019a0000-0000-7000-8000-000000000005" } },
+    ],
+  },
+};
+const notes = {
+  repo: stubNotesRepo({
+    listPages: () => Promise.resolve({ items: [{ id: PAGE_ID, title: page.title, tags: page.tags, snippet: "Heading", updatedAt: now }], nextCursor: null }),
+    tagCounts: () => Promise.resolve([{ tag: "fixture", count: 1 }]),
+    getPage: (id: string) => Promise.resolve(id === PAGE_ID ? page : null),
+    backlinks: () => Promise.resolve([{ pageId: PAGE_ID, pageTitle: page.title, blockId: "p", text: "See", targetBlockId: null }]),
+  }),
+};
+const app = createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(null), log, archive, notes });
 const realFetch = globalThis.fetch;
 globalThis.fetch = (input, init) => {
   const url = input instanceof Request ? input.url : input.toString();
@@ -100,7 +130,7 @@ try {
       render: z.custom<(path: string) => Promise<string>>((v) => typeof v === "function", "render must be a function"),
     })
     .parse(await vite.ssrLoadModule("/src/csp-check.tsx"));
-  for (const path of [...mod.paths, "/archive/new/file", "/archive/new/text", "/archive/new/video", `/archive/e/${FIXTURE_ID}`, `/archive/e/${VIDEO_ID}`]) {
+  for (const path of [...mod.paths, "/archive/new/file", "/archive/new/text", "/archive/new/video", `/archive/e/${FIXTURE_ID}`, `/archive/e/${VIDEO_ID}`, `/notes/p/${PAGE_ID}`]) {
     const html = await mod.render(path);
     const styles = [...html.matchAll(/<style[^>]*>[\s\S]*?<\/style>/g)].map((m) => m[0]);
     const firstStyle = styles[0];

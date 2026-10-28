@@ -1,0 +1,343 @@
+/* Tiptap's base CSS, which it would otherwise inject as a <style> tag (blocked by the CSP);
+   the editor is created with injectCSS: false. Copied from @tiptap/core (src/style.ts):
+   re-check it when upgrading Tiptap. */
+.editor :global(.ProseMirror) {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+}
+
+.editor :global(.ProseMirror [contenteditable="false"]) {
+  white-space: normal;
+}
+
+.editor :global(.ProseMirror [contenteditable="false"] [contenteditable="true"]) {
+  white-space: pre-wrap;
+}
+
+.editor :global(.ProseMirror pre) {
+  white-space: pre-wrap;
+}
+
+.editor :global(img.ProseMirror-separator) {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.editor :global(.ProseMirror-gapcursor) {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  margin: 0;
+}
+
+.editor :global(.ProseMirror-gapcursor::after) {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid light-dark(black, white);
+  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes ProseMirror-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.editor :global(.ProseMirror-hideselection *::selection) {
+  background: transparent;
+}
+
+.editor :global(.ProseMirror-hideselection *) {
+  caret-color: transparent;
+}
+
+.editor :global(.ProseMirror-focused .ProseMirror-gapcursor) {
+  display: block;
+}
+
+.editor :global(.ProseMirror:focus) {
+  outline: none;
+}
+
+/* --- the page body ---------------------------------------------------------------------- */
+
+.editor {
+  position: relative;
+}
+
+.prose {
+  min-height: rem(240px);
+  padding: var(--mantine-spacing-xs) 0 var(--mantine-spacing-xl);
+  line-height: 1.6;
+}
+
+.prose > * + * {
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.prose :global(h1),
+.prose :global(h2),
+.prose :global(h3) {
+  line-height: 1.25;
+  margin-top: var(--mantine-spacing-lg);
+}
+
+.prose :global(p) {
+  margin: 0.5em 0;
+}
+
+.prose :global(li p) {
+  margin: 0.25em 0;
+}
+
+.prose :global(blockquote) {
+  margin-inline: 0;
+  padding-left: var(--mantine-spacing-md);
+  border-left: rem(3px) solid light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+  color: var(--mantine-color-dimmed);
+}
+
+.prose :global(pre) {
+  padding: var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.prose :global(code) {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.9em;
+}
+
+.prose :global(a) {
+  color: var(--mantine-color-anchor);
+}
+
+.prose :global(hr) {
+  border: 0;
+  border-top: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+/* A selected block (click its drag handle, or arrow onto an embed): a soft tint and a thin bar,
+   once. Embeds and drawings show it on their frame instead (.atomBlock below). */
+.prose > :global(.ProseMirror-selectednode):not(:has(.atomBlock)) {
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.12));
+  box-shadow: rem(-6px) 0 0 0 var(--mantine-primary-color-filled);
+}
+
+.prose :global(.ProseMirror-selectednode)::selection,
+.prose :global(.ProseMirror-selectednode) *::selection {
+  background: transparent;
+}
+
+/* The block the drag handle would move, while the pointer is on the handle. */
+.handleTarget {
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  box-shadow: 0 0 0 rem(4px) light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+}
+
+/* The code block holding the cursor says how to leave it (codeBlockExit.ts). */
+.prose :global(pre) {
+  position: relative;
+}
+
+.prose:global(.ProseMirror-focused) :global(pre).codeActive::after {
+  content: attr(data-hint);
+  position: absolute;
+  right: var(--mantine-spacing-xs);
+  bottom: rem(2px);
+  color: var(--mantine-color-dimmed);
+  font-family: var(--mantine-font-family);
+  font-size: var(--mantine-font-size-xs);
+  pointer-events: none;
+}
+
+/* A block reached through a block link (#id). */
+.flash {
+  background: light-dark(var(--mantine-color-yellow-1), rgba(250, 176, 5, 0.18));
+  transition: background 0.6s ease;
+}
+
+/* Page, block and archive links (nodes/links.ts). */
+.link {
+  padding: 0 rem(2px);
+  border-radius: var(--mantine-radius-xs);
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.15));
+  text-decoration: none;
+}
+
+.broken {
+  background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.15));
+  color: var(--mantine-color-red-text) !important;
+  text-decoration: line-through;
+}
+
+/* The handle's box reaches the block (see Editor.tsx); the padding is the visible gap. */
+.dragHandle {
+  display: flex;
+  align-items: center;
+  height: rem(26px);
+  padding-right: rem(10px);
+  cursor: grab;
+  user-select: none;
+}
+
+.grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: rem(20px);
+  height: 100%;
+  border-radius: var(--mantine-radius-sm);
+  color: var(--mantine-color-dimmed);
+  font-size: rem(15px);
+}
+
+.dragHandle:hover .grip {
+  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  color: var(--mantine-color-text);
+}
+
+/* --- embeds (archive entries, drawings) ------------------------------------------------- */
+
+.atomBlock {
+  margin-block: var(--mantine-spacing-sm);
+}
+
+.embed {
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+  white-space: normal;
+}
+
+.atomBlock[data-selected] .embed {
+  border-color: var(--mantine-primary-color-filled);
+  box-shadow: 0 0 0 rem(3px) light-dark(var(--mantine-color-blue-1), rgba(34, 139, 230, 0.25));
+}
+
+.embedHead {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  padding: rem(4px) var(--mantine-spacing-sm);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+}
+
+.embedTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.embedBody {
+  padding: var(--mantine-spacing-sm);
+  cursor: auto;
+}
+
+/* isolation: Excalidraw's own layers (z-index up to the thousands) stay inside the block, below
+   the editor's menus. */
+.drawingCanvas {
+  position: relative;
+  isolation: isolate;
+  height: rem(480px);
+  cursor: auto;
+}
+
+.drawingPreviewBox {
+  display: flex;
+  justify-content: center;
+}
+
+.drawingPreview {
+  max-width: 100%;
+  max-height: rem(420px);
+  height: auto;
+}
+
+/* --- menus ---------------------------------------------------------------------------- */
+
+/* Menus are mounted on <body>, above everything in the page. */
+.bubble {
+  z-index: 1000;
+  padding: rem(2px);
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-md);
+}
+
+.menuLayer {
+  z-index: 1000;
+}
+
+.menu {
+  width: rem(320px);
+  max-height: rem(320px);
+  overflow-y: auto;
+  padding: rem(4px);
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-md);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+  padding: rem(6px) var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.menuItem[aria-selected="true"] {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+}
+
+.menuLabel {
+  display: grid;
+  min-width: 0;
+}
+
+.menuHint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickerList {
+  display: grid;
+  gap: rem(2px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+  padding: var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+
+  @mixin hover {
+    background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  }
+}

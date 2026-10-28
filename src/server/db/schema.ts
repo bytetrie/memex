@@ -16,6 +16,8 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { Scene } from "../../shared/notes.ts";
+import type { Doc } from "../../shared/notes-doc.ts";
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -125,4 +127,93 @@ export const archiveJobs = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
   },
   (t) => [index("archive_jobs_status_idx").on(t.status, t.queuedAt)],
+);
+
+// Notes (design: ideas/notes.md). Pages are editable; everything below the page row is rebuilt
+// from its doc on every save (src/shared/notes-doc.ts analyzeDoc), in the same transaction.
+export const notesPages = pgTable(
+  "notes_pages",
+  {
+    id: uuid("id").primaryKey().default(sql`uuidv7()`),
+    title: text("title").notNull(),
+    // ProseMirror JSON (Tiptap's getJSON()).
+    doc: jsonb("doc").$type<Doc>().notNull(),
+    // Plain text of the doc, for search and snippets.
+    text: text("text").notNull().default(""),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    // Same recipe as archive_entries.search.
+    search: tsvector("search").generatedAlwaysAs(
+      sql`to_tsvector('simple', regexp_replace(title || ' ' || left(text, 200000), '[^[:alnum:]]+', ' ', 'g'))`,
+    ),
+  },
+  (t) => [index("notes_pages_search_idx").using("gin", t.search), index("notes_pages_updated_idx").on(t.updatedAt.desc(), t.id.desc())],
+);
+
+// Separate from archive_tags: notes and the archive tag their own things.
+export const notesTags = pgTable(
+  "notes_tags",
+  {
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notesPages.id, { onDelete: "cascade" }),
+    tag: text("tag").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.tag] }), index("notes_tags_tag_idx").on(t.tag)],
+);
+
+// The blocks of each page that have an id: what (( links search and point at. Block ids are only
+// unique within a page (a pasted block keeps its id), so links name the page too.
+export const notesBlocks = pgTable(
+  "notes_blocks",
+  {
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notesPages.id, { onDelete: "cascade" }),
+    blockId: text("block_id").notNull(),
+    type: text("type").notNull(),
+    text: text("text").notNull(),
+    position: integer("position").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.blockId] })],
+);
+
+// Links from a page (and the block holding the link) to a page or one of its blocks. No foreign
+// key on the target: a link to a deleted page stays, and shows as broken.
+export const notesLinks = pgTable(
+  "notes_links",
+  {
+    fromPageId: uuid("from_page_id")
+      .notNull()
+      .references(() => notesPages.id, { onDelete: "cascade" }),
+    fromBlockId: text("from_block_id"),
+    toPageId: uuid("to_page_id").notNull(),
+    toBlockId: text("to_block_id"),
+  },
+  (t) => [index("notes_links_from_idx").on(t.fromPageId), index("notes_links_to_idx").on(t.toPageId)],
+);
+
+// Excalidraw scenes, saved on their own so a stroke doesn't re-save the page. A page's doc holds
+// only the drawing's id. A drawing no page shows gets detached_at, and the hourly sweep
+// (src/server/notes/gc.ts) deletes it a day later (so undoing a deletion still finds it).
+export const notesDrawings = pgTable("notes_drawings", {
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
+  scene: jsonb("scene").$type<Scene>().notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  detachedAt: timestamp("detached_at", { withTimezone: true, mode: "date" }).defaultNow(),
+});
+
+export const notesPageDrawings = pgTable(
+  "notes_page_drawings",
+  {
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notesPages.id, { onDelete: "cascade" }),
+    drawingId: uuid("drawing_id")
+      .notNull()
+      .references(() => notesDrawings.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.drawingId] }), index("notes_page_drawings_drawing_idx").on(t.drawingId)],
 );

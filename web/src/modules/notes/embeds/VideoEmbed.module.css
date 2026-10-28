@@ -1,0 +1,55 @@
+/* The controls under a video embed: the bookmark label field and the list of bookmarks. */
+
+.form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--mantine-spacing-xs);
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.labelField {
+  flex: 1;
+  min-width: 0;
+}
+
+.bookmarks {
+  margin-top: var(--mantine-spacing-sm);
+}
+
+.list {
+  list-style: none;
+  margin: rem(4px) 0 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: rem(2px);
+}
+
+.jump {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The button's label: time, then the text, cut off with an ellipsis rather than wrapping. */
+.jumpInner {
+  justify-content: flex-start;
+}
+
+.jumpLabel {
+  gap: var(--mantine-spacing-xs);
+  min-width: 0;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  color: var(--mantine-color-dimmed);
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

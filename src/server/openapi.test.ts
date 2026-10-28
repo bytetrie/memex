@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createApp } from "./app.ts";
 import { silentLogger } from "./testing/harness.ts";
-import { idleWorker, stubBlobs, stubIncoming, stubJobs, stubRepo } from "./testing/stubs.ts";
+import { idleWorker, stubBlobs, stubIncoming, stubJobs, stubNotesRepo, stubRepo } from "./testing/stubs.ts";
 
-const app = createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(null), log: silentLogger, archive: { repo: stubRepo(), blobs: stubBlobs(), jobs: stubJobs(), worker: idleWorker, incoming: stubIncoming() } });
+const app = createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(null), log: silentLogger, archive: { repo: stubRepo(), blobs: stubBlobs(), jobs: stubJobs(), worker: idleWorker, incoming: stubIncoming() }, notes: { repo: stubNotesRepo() } });
 
 // The parts of the OpenAPI document these tests read.
 const ContentSchema = z.object({ content: z.record(z.string(), z.object({ schema: z.unknown() })).optional() });

@@ -1,3 +1,4 @@
+// Shared by the archive and notes searches (src/server/archive/repo.ts, src/server/notes/repo.ts).
 // What a person types in the search box: words and #tags ("report 2026 #work #urgent").
 // Words are prefix matches that must all match (toTsQuery); every #tag must be on the entry.
 // A tag containing spaces is quoted: #"my tag". Tags are compared in lower case, like stored tags.

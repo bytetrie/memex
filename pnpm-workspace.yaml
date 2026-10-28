@@ -1,6 +1,12 @@
 allowBuilds:
   esbuild: false
 
+overrides:
+  # Excalidraw's "Mermaid to Excalidraw" dialog drags in mermaid, cytoscape, d3, katex and
+  # langium@3.3.1, which fails trustPolicy (no-downgrade). Notes don't use the dialog: the
+  # package is removed here and its lazy import is aliased to a stub (vite.config.ts).
+  "@excalidraw/mermaid-to-excalidraw": "-"
+
 # pnpm settings for this project, scaffolded by devstack. pnpm reads them on every install, add,
 # update and CI run. They decide what may enter node_modules, so a change here gets the same
 # review as a new dependency. Needs pnpm 10.26 or later (package.json's packageManager pins it).

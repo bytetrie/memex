@@ -19,6 +19,20 @@ import {
 } from "../../src/shared/archive.ts";
 import { DuplicateSchema, JobListSchema, JobSchema, type CreateJob, type JobStatus } from "../../src/shared/archive-jobs.ts";
 import type { ArchiveTypeId } from "../../src/shared/archive-types.ts";
+import {
+  BacklinksSchema,
+  BlockHitsSchema,
+  DrawingSchema,
+  PageListSchema,
+  PageSchema,
+  SavedSchema,
+  TagCountsSchema,
+  VersionConflictSchema,
+  type CreatePage,
+  type PageListQuery,
+  type SaveDrawing,
+  type SavePage,
+} from "../../src/shared/notes.ts";
 
 export const api = hc<AppType>("/").api;
 
@@ -122,3 +136,63 @@ export const listJobs = async (statuses?: JobStatus[]) =>
 export const cancelJob = async (id: string) => JobSchema.parse(await ok(await api.archive.jobs[":id"].cancel.$post({ param: { id } })));
 export const retryJob = async (id: string) => JobSchema.parse(await ok(await api.archive.jobs[":id"].retry.$post({ param: { id } })));
 export const dismissJob = async (id: string) => okEmpty(await api.archive.jobs[":id"].$delete({ param: { id } }));
+
+// --- notes ------------------------------------------------------------------------
+
+// A save answered 409: the page or drawing was saved elsewhere; `version` is the current one.
+export class VersionConflictError extends Error {
+  version: number;
+  constructor(message: string, version: number) {
+    super(message);
+    this.version = version;
+  }
+}
+
+async function saved(res: Response) {
+  const status: number = res.status; // 409 comes from the error handler, which the typed client doesn't see
+  if (status === 409) {
+    const body = VersionConflictSchema.parse(await res.json());
+    throw new VersionConflictError(body.error, body.version);
+  }
+  return SavedSchema.parse(await ok(res));
+}
+
+export const listPages = async (params: Partial<Pick<PageListQuery, "q" | "tag" | "cursor" | "limit">>) => {
+  const query: Record<string, string> = {};
+  for (const [key, value] of Object.entries<string | number | undefined>(params)) if (value !== undefined && value !== "") query[key] = String(value);
+  return PageListSchema.parse(await ok(await api.notes.pages.$get({ query })));
+};
+
+// null when the page does not exist.
+export const getPage = async (id: string) => {
+  const res = await api.notes.pages[":id"].$get({ param: { id } });
+  return res.status === 404 ? null : PageSchema.parse(await ok(res));
+};
+
+export const createPage = async (input: CreatePage) => PageSchema.parse(await ok(await api.notes.pages.$post({ json: input })));
+
+// `keepalive` lets the request finish while the tab closes (bodies up to 64 KiB).
+export const savePage = async (id: string, input: SavePage, opts: { keepalive?: boolean } = {}) =>
+  saved(await api.notes.pages[":id"].$put({ param: { id }, json: input }, { init: { keepalive: opts.keepalive ?? false } }));
+
+export const setPageTags = async (id: string, tags: string[]) =>
+  PageSchema.parse(await ok(await api.notes.pages[":id"].$patch({ param: { id }, json: { tags } })));
+
+export const deletePage = async (id: string) => okEmpty(await api.notes.pages[":id"].$delete({ param: { id } }));
+
+export const getBacklinks = async (id: string) =>
+  BacklinksSchema.parse(await ok(await api.notes.pages[":id"].backlinks.$get({ param: { id } }))).items;
+
+export const searchBlocks = async (q: string) => BlockHitsSchema.parse(await ok(await api.notes.blocks.$get({ query: { q } }))).items;
+
+export const getNoteTags = async () => TagCountsSchema.parse(await ok(await api.notes.tags.$get())).items;
+
+export const createDrawing = async () => DrawingSchema.parse(await ok(await api.notes.drawings.$post()));
+
+// null when the drawing does not exist.
+export const getDrawing = async (id: string) => {
+  const res = await api.notes.drawings[":id"].$get({ param: { id } });
+  return res.status === 404 ? null : DrawingSchema.parse(await ok(res));
+};
+
+export const saveDrawing = async (id: string, input: SaveDrawing) => saved(await api.notes.drawings[":id"].$put({ param: { id }, json: input }));

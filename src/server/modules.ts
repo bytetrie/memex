@@ -14,7 +14,6 @@ const dummy = (id: PlaceholderModuleId, title: string, description: string): Mod
 });
 
 export const modules: Record<PlaceholderModuleId, Module> = {
-  notes: dummy("notes", "Notes", "Written notes."),
   chat: dummy("chat", "Chat", "Conversations."),
   memex: dummy("memex", "Memex", "Associative trails linking everything else."),
   external: dummy("external", "External", "Links out to other services."),

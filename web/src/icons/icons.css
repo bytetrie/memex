@@ -37,3 +37,13 @@
 .icon-video::before { content: "\f008"; }
 .icon-music::before { content: "\f001"; }
 .icon-file-pdf::before { content: "\f1c1"; }
+.icon-pencil::before { content: "\f040"; }
+.icon-link::before { content: "\f0c1"; }
+.icon-header::before { content: "\f1dc"; }
+.icon-list-bullet::before { content: "\f0ca"; }
+.icon-list-numbered::before { content: "\f0cb"; }
+.icon-quote-left::before { content: "\f10d"; }
+.icon-code::before { content: "\f121"; }
+.icon-minus::before { content: "\f068"; }
+.icon-ellipsis-vert::before { content: "\f142"; }
+.icon-angle-right::before { content: "\f105"; }
