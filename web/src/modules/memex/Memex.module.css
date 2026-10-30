@@ -1,0 +1,332 @@
+/* The memex screens: the pane beside the page being edited (the editor takes all the width that
+   is left, unlike notes' centred column), the editor's toolbar, canvas and side column, and the
+   export dialog. Plain grid (no Mantine AppShell/Grid, which inject <style> tags the CSP blocks). */
+
+.layout {
+  --pane-w: rem(240px);
+  display: grid;
+  grid-template-columns: var(--pane-w) minmax(0, 1fr);
+  gap: var(--mantine-spacing-lg);
+  align-items: start;
+}
+
+.layout[data-pane="closed"] {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.pane {
+  display: grid;
+  align-content: start;
+  gap: var(--mantine-spacing-md);
+  position: sticky;
+  top: var(--mantine-spacing-md);
+  max-height: calc(100dvh - 2 * var(--mantine-spacing-md));
+  overflow-y: auto;
+}
+
+.unfold {
+  position: sticky;
+  top: var(--mantine-spacing-md);
+}
+
+.content {
+  min-width: 0;
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .layout,
+  .layout[data-pane="closed"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pane,
+  .unfold {
+    position: static;
+    max-height: none;
+  }
+}
+
+.grow {
+  flex: 1;
+}
+
+.tagBadge {
+  cursor: pointer;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list {
+  display: grid;
+  gap: rem(2px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pageItem {
+  display: flex;
+  align-items: center;
+  border-radius: var(--mantine-radius-sm);
+
+  @mixin hover {
+    background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  }
+}
+
+.pageItem:has(.pageLink[aria-current="page"]) {
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.15));
+}
+
+.pageLink {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--mantine-spacing-xs);
+  padding: rem(4px) var(--mantine-spacing-xs);
+  color: inherit;
+
+  @mixin hover {
+    text-decoration: none;
+  }
+}
+
+.pageLink[aria-current="page"] {
+  font-weight: 500;
+}
+
+.pageTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pageFormat {
+  flex: none;
+}
+
+.pageMenu {
+  flex: none;
+  opacity: 0;
+}
+
+.pageItem:hover .pageMenu,
+.pageItem:focus-within .pageMenu,
+.pageMenu[aria-expanded="true"] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .pageMenu {
+    opacity: 1;
+  }
+}
+
+/* --- the editor ----------------------------------------------------------------------------- */
+
+.editor {
+  display: grid;
+  gap: var(--mantine-spacing-sm);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+}
+
+.title input {
+  height: auto;
+  min-height: 0;
+  padding-block: rem(4px);
+  font-size: var(--mantine-h2-font-size);
+  font-weight: 700;
+  line-height: var(--mantine-h2-line-height);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: rem(6px) 0;
+  background: var(--mantine-color-body);
+}
+
+.textToolbar {
+  padding-left: var(--mantine-spacing-sm);
+  border-left: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+.textToolbar[hidden] {
+  display: none;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) rem(300px);
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+}
+
+@media (max-width: $mantine-breakpoint-md) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.canvasColumn {
+  min-width: 0;
+}
+
+.side {
+  min-width: 0;
+  scrollbar-gutter: stable;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mantine-spacing-md);
+  position: sticky;
+  top: rem(56px);
+  max-height: calc(100dvh - rem(72px));
+  overflow-y: auto;
+}
+
+.panel {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-sm);
+  border: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+}
+
+.subpanel {
+  display: grid;
+  gap: var(--mantine-spacing-xs);
+  padding-top: var(--mantine-spacing-xs);
+  border-top: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--mantine-spacing-xs);
+}
+
+.effects {
+  display: grid;
+  gap: var(--mantine-spacing-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: rem(2px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  align-items: center;
+  gap: rem(2px);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.layer[data-selected] {
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.15));
+}
+
+.layer[data-hidden] .layerName {
+  opacity: 0.5;
+}
+
+.layerName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: rem(6px);
+  padding: rem(3px) rem(6px);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.layerState {
+  flex: none;
+  color: var(--mantine-color-dimmed);
+}
+
+.layerText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- the export dialog ---------------------------------------------------------------------- */
+
+.exportGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mantine-spacing-md);
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .exportGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exportList {
+  display: flex;
+  flex-direction: column;
+  gap: rem(2px);
+  margin: 0;
+  padding: rem(4px);
+  list-style: none;
+  height: rem(260px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-sm);
+}
+
+.exportList li {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-xs);
+}
+
+.exportTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -6,16 +6,19 @@
 // the editor is memoised. The page's data is always fetched fresh when the page is opened
 // (gcTime 0, no preloading): an editor started from a stale doc would conflict on its first save.
 
-import { Alert, Button, Group, TagsInput, Text, TextInput, Title } from "@mantine/core";
+import { TagsInput, Text, TextInput, Title } from "@mantine/core";
 import { createRoute, notFound, useRouter } from "@tanstack/react-router";
-import { lazy, memo, Suspense, useMemo, useState, useSyncExternalStore, type ReactElement } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, useState, type ReactElement } from "react";
 import { z } from "zod";
+import type { Doc } from "../../../../src/shared/notes-doc.ts";
 import type { Backlink, Page } from "../../../../src/shared/notes.ts";
 import { getBacklinks, getPage, savePage, setPageTags } from "../../api.ts";
 import { AnchorLink } from "../../components/AnchorLink.tsx";
 import { Icon } from "../../icons/Icon.tsx";
-import { createAutosave, type Autosave } from "./autosave.ts";
+import { createAutosave } from "../../autosave.ts";
+import { SaveStatus } from "../../components/SaveStatus.tsx";
 import { pagesChanged } from "./events.ts";
+import { forgetLastPage, rememberLastPage } from "./lastPage.ts";
 import { notesLayout } from "./layout.tsx";
 import classes from "./Notes.module.css";
 
@@ -35,43 +38,22 @@ export const pageRoute = createRoute({
   staleTime: 0,
   loader: async ({ params }) => {
     const [page, backlinks] = await Promise.all([getPage(params.pageId), getBacklinks(params.pageId)]);
-    if (!page) throw notFound();
+    if (!page) {
+      forgetLastPage(params.pageId);
+      throw notFound();
+    }
     return { page, backlinks };
   },
   component: function PageRoute(): ReactElement {
     const { page, backlinks } = pageRoute.useLoaderData();
+    useEffect(() => {
+      rememberLastPage(page.id);
+    }, [page.id]);
     // Bumped to start over from the server's version after a conflict.
     const [generation, setGeneration] = useState(0);
     return <PageView key={`${page.id}:${String(generation)}`} page={page} backlinks={backlinks} onReload={() => { setGeneration((g) => g + 1); }} />;
   },
 });
-
-function SaveStatus({ autosave, onReload }: { autosave: Autosave; onReload: () => Promise<void> }): ReactElement {
-  const state = useSyncExternalStore(autosave.subscribe, autosave.getState);
-  if (state.status === "conflict") {
-    return (
-      <Alert color="orange" title="This page was changed elsewhere" mt="sm">
-        <Text size="sm" mb="xs">
-          Another tab or device saved this page while you were editing it. Your changes here are not saved yet.
-        </Text>
-        <Group gap="xs">
-          <Button size="xs" variant="light" onClick={() => void onReload()}>
-            Load the saved version
-          </Button>
-          <Button size="xs" color="orange" onClick={() => void autosave.overwrite()}>
-            Keep mine
-          </Button>
-        </Group>
-      </Alert>
-    );
-  }
-  const text = { saved: "Saved", dirty: "Unsaved changes", saving: "Saving…", error: `Not saved: ${state.status === "error" ? (state.error ?? "") : ""} (retrying)` }[state.status];
-  return (
-    <Text size="sm" c={state.status === "error" ? "red" : "dimmed"} aria-live="polite">
-      {text}
-    </Text>
-  );
-}
 
 // One entry per linking page; under it, each place on that page that links here (its block's
 // text), opening that page at that block.
@@ -132,7 +114,7 @@ function PageView({ page, backlinks, onReload }: { page: Page; backlinks: Backli
   const router = useRouter();
   const autosave = useMemo(
     () =>
-      createAutosave({
+      createAutosave<Doc>({
         version: page.version,
         title: page.title,
         save: (input, opts) => savePage(page.id, input, opts),

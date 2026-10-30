@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { END_MARGIN_S, MIN_RESUME_S, positionKey, positionToKeep, readPosition, rememberPosition } from "./videoPosition.ts";
+import { createPositionTracker, END_MARGIN_S, MIN_RESUME_S, positionKey, positionToKeep, readPosition, rememberPosition } from "./videoPosition.ts";
 
 function memoryStore() {
   const items = new Map<string, string>();
@@ -58,5 +58,36 @@ describe("video positions", () => {
       rememberPosition(key, 75, 600, broken);
     }).not.toThrow();
     expect(readPosition(key, null)).toBeNull();
+  });
+
+  it("keeps the last position when the player is torn down", () => {
+    const store = memoryStore();
+    rememberPosition(key, 300, 600, store);
+    const tracker = createPositionTracker(key, store);
+    tracker.observe(0, 600, true); // loaded, never played: nothing is written
+    tracker.save(true);
+    expect(readPosition(key, store)).toBe(300);
+    tracker.played();
+    tracker.observe(120, 600, true);
+    tracker.save(true);
+    expect(readPosition(key, store)).toBe(120);
+    // hls.js's destroy() reloads the element: back at 0, no metadata.
+    tracker.observe(0, Number.NaN, false);
+    tracker.save(true);
+    expect(readPosition(key, store)).toBe(120);
+  });
+
+  it("keeps each block's position apart", () => {
+    const store = memoryStore();
+    const a = createPositionTracker(positionKey("page-1", "a"), store);
+    const b = createPositionTracker(positionKey("page-1", "b"), store);
+    a.played();
+    a.observe(60, 600, true);
+    a.save(true);
+    b.played();
+    b.observe(200, 600, true);
+    b.save(true);
+    expect(readPosition(positionKey("page-1", "a"), store)).toBe(60);
+    expect(readPosition(positionKey("page-1", "b"), store)).toBe(200);
   });
 });

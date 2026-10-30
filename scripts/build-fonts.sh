@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Converts the TeX Gyre Heros OTF sources in font/texgyre/ to WOFF2 with
+# Converts the TeX Gyre OTF sources (Heros: sans, Termes: serif, Cursor: monospace) in font/texgyre/ to WOFF2 with
 # woff2_compress (Debian package `woff2`, installed by scripts/sync-env.sh from
 # infra/apt-packages.txt). Output is committed so the app build
 # does not need the tool:

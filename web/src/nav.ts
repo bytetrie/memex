@@ -7,8 +7,8 @@ import type { IconName } from "./icons/names.ts";
 export type NavItem = { to: NonNullable<LinkProps["to"]>; label: string; icon: IconName };
 
 export const nav: NavItem[] = [
-  { to: "/archive", label: "Archive", icon: "box" },
   { to: "/notes", label: "Notes", icon: "doc-text" },
+  { to: "/archive", label: "Archive", icon: "box" },
   { to: "/chat", label: "Chat", icon: "chat" },
   { to: "/memex", label: "Memex", icon: "sitemap" },
   { to: "/external", label: "External", icon: "link-ext" },

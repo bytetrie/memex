@@ -120,6 +120,32 @@
   font-size: 0.9em;
 }
 
+/* Syntax colours in code blocks (codeHighlight.ts). */
+.tokComment {
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  font-style: italic;
+}
+
+.tokString {
+  color: light-dark(var(--mantine-color-green-8), var(--mantine-color-green-4));
+}
+
+.tokNumber {
+  color: light-dark(var(--mantine-color-orange-8), var(--mantine-color-orange-4));
+}
+
+.tokKeyword {
+  color: light-dark(var(--mantine-color-violet-7), var(--mantine-color-violet-3));
+}
+
+.tokLiteral {
+  color: light-dark(var(--mantine-color-cyan-8), var(--mantine-color-cyan-4));
+}
+
+.tokFunction {
+  color: light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-4));
+}
+
 .prose :global(a) {
   color: var(--mantine-color-anchor);
 }
@@ -338,6 +364,10 @@
   border-radius: var(--mantine-radius-sm);
 
   @mixin hover {
+    background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  }
+
+  &:focus-visible {
     background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
   }
 }

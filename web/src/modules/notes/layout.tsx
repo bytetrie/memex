@@ -14,6 +14,7 @@ import { AnchorLink } from "../../components/AnchorLink.tsx";
 import { Icon } from "../../icons/Icon.tsx";
 import { rootRoute } from "../../root.tsx";
 import { onPagesChanged, pagesChanged } from "./events.ts";
+import { forgetLastPage } from "./lastPage.ts";
 import classes from "./Notes.module.css";
 
 const SEARCH_DELAY_MS = 250;
@@ -275,7 +276,9 @@ function DeleteDialog({ page, onClose }: { page: PageSummary | null; onClose: ()
   async function remove() {
     if (!page) return;
     try {
-      // Leave the page first, so its editor saves (and stops) before the page is gone.
+      // Leave the page first, so its editor saves (and stops) before the page is gone; /notes
+      // must not reopen it.
+      forgetLastPage(page.id);
       if (params.pageId === page.id) await navigate({ to: "/notes", search: (prev) => prev });
       await deletePage(page.id);
       setError(null);

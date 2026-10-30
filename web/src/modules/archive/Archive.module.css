@@ -23,7 +23,7 @@
 
 .list {
   display: grid;
-  gap: var(--mantine-spacing-sm);
+  gap: var(--mantine-spacing-xs);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -34,7 +34,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--mantine-spacing-xs);
-  margin-top: rem(4px);
+  margin-top: rem(2px);
 }
 
 .section {
@@ -76,7 +76,7 @@
 
 .cardThumb {
   flex: 0 0 auto;
-  width: rem(160px);
+  width: rem(112px);
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: var(--mantine-radius-sm);
@@ -87,13 +87,19 @@
   min-width: 0;
 }
 
-@media (max-width: 36em) { /* Mantine xs */
-  .cardBody {
-    flex-direction: column;
-  }
+/* Long titles take two lines at most. */
+.cardTitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 
+@media (max-width: 36em) { /* Mantine xs */
   .cardThumb {
-    width: 100%;
+    width: rem(88px);
   }
 }
 

@@ -7,10 +7,10 @@ import { homeRoute } from "./pages/home.tsx";
 import { archiveRoute } from "./modules/archive/route.tsx";
 import { notesRoute } from "./modules/notes/route.tsx";
 import { chatRoute } from "./modules/chat/route.tsx";
-import { memexRoute } from "./modules/memex/route.tsx";
+import { memexPrintRoute, memexRoute } from "./modules/memex/route.tsx";
 import { externalRoute } from "./modules/external/route.tsx";
 
-export const routeTree = rootRoute.addChildren([homeRoute, archiveRoute, notesRoute, chatRoute, memexRoute, externalRoute]);
+export const routeTree = rootRoute.addChildren([homeRoute, archiveRoute, notesRoute, chatRoute, memexRoute, memexPrintRoute, externalRoute]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent" });
 

@@ -140,32 +140,34 @@ export function VideoEmbed({ entry, block }: EmbedProps): ReactElement {
                   <span className={classes.time}>{formatDuration(mark.t)}</span>
                   <span className={classes.label}>{mark.label}</span>
                 </Button>
-                <Tooltip label="Rename">
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    aria-label={`Rename bookmark ${mark.label}`}
-                    onClick={() => {
-                      startRename(i, mark);
-                    }}
-                  >
-                    <Icon name="pencil" />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Delete">
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    aria-label={`Delete bookmark ${mark.label}`}
-                    onClick={() => {
-                      remove(i);
-                    }}
-                  >
-                    <Icon name="trash" />
-                  </ActionIcon>
-                </Tooltip>
+                <span className={classes.actions}>
+                  <Tooltip label="Rename">
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color="gray"
+                      aria-label={`Rename bookmark ${mark.label}`}
+                      onClick={() => {
+                        startRename(i, mark);
+                      }}
+                    >
+                      <Icon name="pencil" />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Delete">
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color="gray"
+                      aria-label={`Delete bookmark ${mark.label}`}
+                      onClick={() => {
+                        remove(i);
+                      }}
+                    >
+                      <Icon name="trash" />
+                    </ActionIcon>
+                  </Tooltip>
+                </span>
               </li>
             ))}
           </ul>

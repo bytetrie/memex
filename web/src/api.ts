@@ -33,6 +33,14 @@ import {
   type SaveDrawing,
   type SavePage,
 } from "../../src/shared/notes.ts";
+import {
+  AssetSchema,
+  MemexPageListSchema,
+  MemexPageSchema,
+  type CreateMemexPage,
+  type MemexPageListQuery,
+  type SaveMemexPage,
+} from "../../src/shared/memex.ts";
 
 export const api = hc<AppType>("/").api;
 
@@ -196,3 +204,36 @@ export const getDrawing = async (id: string) => {
 };
 
 export const saveDrawing = async (id: string, input: SaveDrawing) => saved(await api.notes.drawings[":id"].$put({ param: { id }, json: input }));
+
+// --- memex ------------------------------------------------------------------------
+
+type MemexListParams = Partial<Pick<MemexPageListQuery, "q" | "tag" | "cursor" | "limit">>;
+
+export const listMemexPages = async (params: MemexListParams) => {
+  const query: Record<string, string> = {};
+  for (const [key, value] of Object.entries<string | number | undefined>(params)) if (value !== undefined && value !== "") query[key] = String(value);
+  return MemexPageListSchema.parse(await ok(await api.memex.pages.$get({ query })));
+};
+
+// null when the page does not exist.
+export const getMemexPage = async (id: string) => {
+  const res = await api.memex.pages[":id"].$get({ param: { id } });
+  return res.status === 404 ? null : MemexPageSchema.parse(await ok(res));
+};
+
+export const createMemexPage = async (input: CreateMemexPage) => MemexPageSchema.parse(await ok(await api.memex.pages.$post({ json: input })));
+
+export const saveMemexPage = async (id: string, input: SaveMemexPage, opts: { keepalive?: boolean } = {}) =>
+  saved(await api.memex.pages[":id"].$put({ param: { id }, json: input }, { init: { keepalive: opts.keepalive ?? false } }));
+
+export const setMemexPageTags = async (id: string, tags: string[]) =>
+  MemexPageSchema.parse(await ok(await api.memex.pages[":id"].$patch({ param: { id }, json: { tags } })));
+
+export const deleteMemexPage = async (id: string) => okEmpty(await api.memex.pages[":id"].$delete({ param: { id } }));
+
+export const getMemexTags = async () => TagCountsSchema.parse(await ok(await api.memex.tags.$get())).items;
+
+// Uploads an asset's bytes (PUT with the raw body); the server decides what it is.
+export const uploadMemexAsset = async (body: Blob) => AssetSchema.parse(await ok(await fetch(api.memex.assets.$path(), { method: "PUT", body })));
+
+export const memexAssetUrl = (sha256: string) => api.memex.assets[":sha256"].$path({ param: { sha256 } });

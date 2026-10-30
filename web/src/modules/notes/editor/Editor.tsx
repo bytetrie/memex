@@ -10,7 +10,8 @@ import { DragHandle } from "@tiptap/extension-drag-handle-react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, type ReactElement } from "react";
 import type { Page } from "../../../../../src/shared/notes.ts";
-import type { Autosave } from "../autosave.ts";
+import type { Doc } from "../../../../../src/shared/notes-doc.ts";
+import type { Autosave } from "../../../autosave.ts";
 import { ArchivePicker, createArchivePicker } from "./ArchivePicker.tsx";
 import { flashBlock } from "./blockFlash.ts";
 import { BubbleToolbar } from "./BubbleToolbar.tsx";
@@ -25,7 +26,7 @@ const FLASH_MS = 2000;
 // the grip and the text is padding inside the handle (.dragHandle), still part of its hover area.
 const HANDLE_POSITION = { placement: "left-start" as const };
 
-export default function Editor({ page, autosave }: { page: Page; autosave: Autosave }): ReactElement {
+export default function Editor({ page, autosave }: { page: Page; autosave: Autosave<Doc> }): ReactElement {
   const navigate = useNavigate();
   const hash = useRouterState({ select: (s) => s.location.hash });
   const picker = useMemo(createArchivePicker, []);

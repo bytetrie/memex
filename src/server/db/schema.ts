@@ -18,6 +18,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { Scene } from "../../shared/notes.ts";
 import type { Doc } from "../../shared/notes-doc.ts";
+import type { PageDoc } from "../../shared/memex-doc.ts";
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -216,4 +217,61 @@ export const notesPageDrawings = pgTable(
       .references(() => notesDrawings.id, { onDelete: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.pageId, t.drawingId] }), index("notes_page_drawings_drawing_idx").on(t.drawingId)],
+);
+
+// Memex: printable pages (design: ideas/printable.md). Its own tables and its own asset store
+// ($STATE_DIRECTORY/memex/); nothing here touches the archive. memex_page_assets is rebuilt from
+// the doc on every save (src/shared/memex-doc.ts analyzePageDoc), in the same transaction.
+export const memexPages = pgTable(
+  "memex_pages",
+  {
+    id: uuid("id").primaryKey().default(sql`uuidv7()`),
+    title: text("title").notNull(),
+    doc: jsonb("doc").$type<PageDoc>().notNull(),
+    // Text of the page's text boxes, for search and snippets.
+    text: text("text").notNull().default(""),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    // Same recipe as notes_pages.search.
+    search: tsvector("search").generatedAlwaysAs(
+      sql`to_tsvector('simple', regexp_replace(title || ' ' || left(text, 200000), '[^[:alnum:]]+', ' ', 'g'))`,
+    ),
+  },
+  (t) => [index("memex_pages_search_idx").using("gin", t.search), index("memex_pages_updated_idx").on(t.updatedAt.desc(), t.id.desc())],
+);
+
+export const memexTags = pgTable(
+  "memex_tags",
+  {
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => memexPages.id, { onDelete: "cascade" }),
+    tag: text("tag").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.tag] }), index("memex_tags_tag_idx").on(t.tag)],
+);
+
+// Uploaded files, stored by sha256 in the memex blob store. The server sets `mime` from the bytes.
+// An asset no page uses has detached_at (an upload starts that way); the hourly sweep
+// (src/server/memex/gc.ts) deletes it a day later, so undoing a deletion still finds it.
+export const memexAssets = pgTable("memex_assets", {
+  sha256: text("sha256").primaryKey(),
+  mime: text("mime").notNull(),
+  size: bigint("size", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  detachedAt: timestamp("detached_at", { withTimezone: true, mode: "date" }).defaultNow(),
+});
+
+export const memexPageAssets = pgTable(
+  "memex_page_assets",
+  {
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => memexPages.id, { onDelete: "cascade" }),
+    sha256: text("sha256")
+      .notNull()
+      .references(() => memexAssets.sha256, { onDelete: "restrict" }),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.sha256] }), index("memex_page_assets_sha256_idx").on(t.sha256)],
 );

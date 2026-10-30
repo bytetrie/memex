@@ -1,0 +1,126 @@
+/* The stylesheet of an exported HTML file (exportHtml.ts). On screen it is the web view (a
+   flowing column); printed, it is the sheets, each a page of its own size (named @page rules, as
+   in Print.module.css: keep the two in step). Both layouts are inline in the markup. */
+
+@page letter-portrait {
+  size: 8.5in 11in;
+  margin: 0;
+}
+
+@page letter-landscape {
+  size: 11in 8.5in;
+  margin: 0;
+}
+
+@page half-portrait {
+  size: 5.5in 8.5in;
+  margin: 0;
+}
+
+@page half-landscape {
+  size: 8.5in 5.5in;
+  margin: 0;
+}
+
+@page quarter-portrait {
+  size: 4.25in 5.5in;
+  margin: 0;
+}
+
+@page quarter-landscape {
+  size: 5.5in 4.25in;
+  margin: 0;
+}
+
+/* On screen: the web view, a readable column (its layout is inline in the markup). */
+html {
+  background: #fff;
+}
+
+body {
+  margin: 0;
+  font-family: "TeX Gyre Heros", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+[data-memex-sheets] {
+  display: none;
+}
+
+[data-memex-sheet] {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+}
+
+[data-memex-sheet][data-page="letter-portrait"] {
+  page: letter-portrait;
+}
+
+[data-memex-sheet][data-page="letter-landscape"] {
+  page: letter-landscape;
+}
+
+[data-memex-sheet][data-page="half-portrait"] {
+  page: half-portrait;
+}
+
+[data-memex-sheet][data-page="half-landscape"] {
+  page: half-landscape;
+}
+
+[data-memex-sheet][data-page="quarter-portrait"] {
+  page: quarter-portrait;
+}
+
+[data-memex-sheet][data-page="quarter-landscape"] {
+  page: quarter-landscape;
+}
+
+/* The document prints on the last sheet's page, so closing it adds no blank page at the end. */
+html:has([data-memex-sheets][data-last-page="letter-portrait"]) {
+  page: letter-portrait;
+}
+
+html:has([data-memex-sheets][data-last-page="letter-landscape"]) {
+  page: letter-landscape;
+}
+
+html:has([data-memex-sheets][data-last-page="half-portrait"]) {
+  page: half-portrait;
+}
+
+html:has([data-memex-sheets][data-last-page="half-landscape"]) {
+  page: half-landscape;
+}
+
+html:has([data-memex-sheets][data-last-page="quarter-portrait"]) {
+  page: quarter-portrait;
+}
+
+html:has([data-memex-sheets][data-last-page="quarter-landscape"]) {
+  page: quarter-landscape;
+}
+
+@media print {
+  [data-memex-web] {
+    display: none;
+  }
+
+  [data-memex-sheets] {
+    display: block;
+  }
+
+  [data-memex-sheet] {
+    break-after: page;
+    print-color-adjust: exact;
+  }
+
+  [data-memex-sheet]:last-child {
+    break-after: auto;
+  }
+}

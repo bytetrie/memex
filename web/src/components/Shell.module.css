@@ -20,3 +20,19 @@
   min-width: 0;
   padding: var(--mantine-spacing-md);
 }
+
+/* Printing (the memex print view): only the page content. */
+@media print {
+  .root {
+    display: block;
+    min-height: 0;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .main {
+    padding: 0;
+  }
+}

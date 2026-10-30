@@ -1,0 +1,146 @@
+/* The print view (PrintView.tsx). One named @page per sheet size and orientation: the CSP lets
+   no stylesheet be made at runtime, so the finite set is written out here, and each sheet picks
+   its own with `page:` (data-page, from impose.ts). Keep in step with export.css, which does the
+   same for the exported HTML file. */
+
+@page letter-portrait {
+  size: 8.5in 11in;
+  margin: 0;
+}
+
+@page letter-landscape {
+  size: 11in 8.5in;
+  margin: 0;
+}
+
+@page half-portrait {
+  size: 5.5in 8.5in;
+  margin: 0;
+}
+
+@page half-landscape {
+  size: 8.5in 5.5in;
+  margin: 0;
+}
+
+@page quarter-portrait {
+  size: 4.25in 5.5in;
+  margin: 0;
+}
+
+@page quarter-landscape {
+  size: 5.5in 4.25in;
+  margin: 0;
+}
+
+.view {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+}
+
+.bar {
+  max-width: rem(1100px);
+}
+
+.sheets {
+  display: grid;
+  justify-content: center;
+  gap: var(--mantine-spacing-lg);
+  padding-bottom: var(--mantine-spacing-xl);
+}
+
+.sheet {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 rem(1px) rem(4px) rgba(0, 0, 0, 0.3);
+}
+
+.sheet[data-page="letter-portrait"] {
+  page: letter-portrait;
+}
+
+.sheet[data-page="letter-landscape"] {
+  page: letter-landscape;
+}
+
+.sheet[data-page="half-portrait"] {
+  page: half-portrait;
+}
+
+.sheet[data-page="half-landscape"] {
+  page: half-landscape;
+}
+
+.sheet[data-page="quarter-portrait"] {
+  page: quarter-portrait;
+}
+
+.sheet[data-page="quarter-landscape"] {
+  page: quarter-landscape;
+}
+
+/* The document itself prints on the last sheet's page: if it stayed on the default page, closing
+   it after a named-page sheet would add a blank page at the end. */
+:global(html):has(.sheets[data-last-page="letter-portrait"]) {
+  page: letter-portrait;
+}
+
+:global(html):has(.sheets[data-last-page="letter-landscape"]) {
+  page: letter-landscape;
+}
+
+:global(html):has(.sheets[data-last-page="half-portrait"]) {
+  page: half-portrait;
+}
+
+:global(html):has(.sheets[data-last-page="half-landscape"]) {
+  page: half-landscape;
+}
+
+:global(html):has(.sheets[data-last-page="quarter-portrait"]) {
+  page: quarter-portrait;
+}
+
+:global(html):has(.sheets[data-last-page="quarter-landscape"]) {
+  page: quarter-landscape;
+}
+
+/* The web view (FlowRender) as it shows on screen in the exported file. */
+.web {
+  border: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  background: #fff;
+}
+
+@media print {
+  .bar,
+  .web {
+    display: none;
+  }
+
+  /* Printing always prints the sheets, whichever view is showing. */
+  [data-memex-export] > [hidden] {
+    display: block;
+  }
+
+  .web[hidden] {
+    display: none;
+  }
+
+  .view,
+  .sheets {
+    display: block;
+    padding: 0;
+  }
+
+  .sheet {
+    box-shadow: none;
+    break-after: page;
+    print-color-adjust: exact;
+  }
+
+  .sheet:last-child {
+    break-after: auto;
+  }
+}

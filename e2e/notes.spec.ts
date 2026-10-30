@@ -243,6 +243,70 @@ test("web links: [text](address), Ctrl+K; leaving a code block", async ({ page, 
   expect(errors).toEqual([]);
 });
 
+test("code blocks: Tab and Enter indent, three Enters leave, the code is coloured", async ({ page, request }) => {
+  const errors = collectErrors(page);
+  const note = await apiPage(request, unique());
+
+  await page.goto(`/notes/p/${note.id}`);
+  await editorOf(page).click();
+  await page.keyboard.type("``` ");
+  await page.keyboard.type("if (x) {");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("y()");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("z");
+  for (let i = 0; i < 3; i++) await page.keyboard.press("Enter");
+  await page.keyboard.type("after the code");
+  await expect(editorOf(page).getByRole("paragraph").filter({ hasText: "after the code" })).toBeVisible();
+  expect(await editorOf(page).evaluate((el) => el.querySelectorAll("pre span[class]").length)).toBeGreaterThan(0);
+
+  const code = async () => {
+    const block = (await readPage(request, note.id)).doc.content?.find((n) => n.type === "codeBlock");
+    return block?.content?.map((t) => t.text ?? "").join("") ?? null;
+  };
+  await expect.poll(code, { timeout: 10_000 }).toBe("if (x) {\n  y()\n    z");
+  expect(errors).toEqual([]);
+});
+
+test("link an archive entry from the keyboard", async ({ page, request }) => {
+  const errors = collectErrors(page);
+  const entry = await apiTextEntry(request, unique(), "linked by keyboard");
+  const note = await apiPage(request, unique());
+
+  await page.goto(`/notes/p/${note.id}`);
+  await editorOf(page).click();
+  await page.keyboard.type("/archive");
+  await page.getByRole("listbox", { name: "Insert a block" }).getByRole("option", { name: "Link to an archive entry" }).click();
+  const dialog = page.getByRole("dialog", { name: "Link to an archive entry" });
+  await dialog.getByRole("textbox", { name: "Search the archive" }).fill(entry.title);
+  const result = dialog.getByRole("button", { name: entry.title });
+  await expect(result).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await expect(result).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(dialog.getByRole("textbox", { name: "Search the archive" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => JSON.stringify((await readPage(request, note.id)).doc), { timeout: 10_000 }).toContain(entry.id);
+  expect(errors).toEqual([]);
+});
+
+test("the front page opens the notes, which reopen the page last viewed", async ({ page, request }) => {
+  const errors = collectErrors(page);
+  const note = await apiPage(request, unique());
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/notes$/);
+  await page.goto(`/notes/p/${note.id}`);
+  await expect(page.getByRole("textbox", { name: "Page title" })).toHaveValue(note.title);
+  await page.goto("/");
+  await expect(page).toHaveURL(`/notes/p/${note.id}`);
+  await expect(page.getByRole("textbox", { name: "Page title" })).toHaveValue(note.title);
+  expect(errors).toEqual([]);
+});
+
 test("the pane: fold it, filter by a tag and clear it, delete a page from its menu", async ({ page, request }) => {
   const errors = collectErrors(page);
   const tag = token();

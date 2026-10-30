@@ -1,4 +1,4 @@
-// Saves a page a moment after the last change, outside React: the editor marks the page dirty
+// Saves a page (a notes page, a memex page) a moment after the last change, outside React: the editor marks the page dirty
 // on every transaction, and nothing re-renders for it. Only the status (Saving… / Saved / a
 // conflict) is observable, through subscribe/getStatus (for useSyncExternalStore), and only the
 // small status component reads it.
@@ -10,13 +10,14 @@
 // - flush() runs when the page is left; pagehide sends with keepalive so it survives the tab
 //   closing (if the body fits in 64 KiB; beforeunload warns about unsaved changes otherwise).
 
-import type { Doc } from "../../../../src/shared/notes-doc.ts";
-import type { Saved, SavePage } from "../../../../src/shared/notes.ts";
-import { VersionConflictError } from "../../api.ts";
+import type { Saved } from "../../src/shared/notes.ts";
+import { VersionConflictError } from "./api.ts";
 
 export type SaveState = { status: "saved" | "dirty" | "saving" | "error"; error?: string } | { status: "conflict"; serverVersion: number };
 
-type SaveFn = (input: SavePage, opts: { keepalive: boolean }) => Promise<Saved>;
+// What a versioned save sends; D is the page's doc type.
+export type SaveInput<D> = { title: string; doc: D; baseVersion: number };
+type SaveFn<D> = (input: SaveInput<D>, opts: { keepalive: boolean }) => Promise<Saved>;
 
 const DEBOUNCE_MS = 800;
 const RETRY_MS = 5000;
@@ -27,12 +28,12 @@ const idle = (fn: () => void) => {
   else setTimeout(fn, 0);
 };
 
-export type Autosave = ReturnType<typeof createAutosave>;
+export type Autosave<D = unknown> = ReturnType<typeof createAutosave<D>>;
 
-export function createAutosave(opts: { version: number; title: string; save: SaveFn; onSaved?: (saved: Saved) => void }) {
+export function createAutosave<D>(opts: { version: number; title: string; save: SaveFn<D>; onSaved?: (saved: Saved) => void }) {
   let version = opts.version;
   let title = opts.title;
-  let getDoc: (() => Doc) | null = null;
+  let getDoc: (() => D) | null = null;
   let dirty = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> | null = null;
@@ -58,7 +59,7 @@ export function createAutosave(opts: { version: number; title: string; save: Sav
     if (!dirty || !getDoc || state.status === "conflict") return;
     dirty = false;
     set({ status: "saving" });
-    const input: SavePage = { title, doc: getDoc(), baseVersion: version };
+    const input: SaveInput<D> = { title, doc: getDoc(), baseVersion: version };
     try {
       const fits = JSON.stringify(input).length < KEEPALIVE_MAX;
       const result = await opts.save(input, { keepalive: keepalive && fits });
@@ -104,7 +105,7 @@ export function createAutosave(opts: { version: number; title: string; save: Sav
   return {
     // The editor hands over how to read its doc once it exists. Detaching (the page is left)
     // keeps the last doc and saves it if it changed.
-    attach(read: () => Doc) {
+    attach(read: () => D) {
       getDoc = read;
       window.addEventListener("pagehide", onPageHide);
       window.addEventListener("beforeunload", onBeforeUnload);

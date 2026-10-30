@@ -5,7 +5,8 @@
 // - When INTERNAL_TOKEN is set (phase "isolation"), every request must carry the
 //   X-Internal-Token header that Caddy adds; anything else gets a bare 500.
 // - Needs DATABASE_URL (migrations run at boot) and STATE_DIRECTORY (systemd's
-//   writable data folder; the archive's files live in <STATE_DIRECTORY>/archive).
+//   writable data folder; the archive's files live in <STATE_DIRECTORY>/archive, the
+//   memex's in <STATE_DIRECTORY>/memex).
 // - Logs JSON lines to stdout (journald); level from LOG_LEVEL.
 // Node >= 23.6 runs .ts files directly (type stripping), so no build step.
 
@@ -20,6 +21,8 @@ import { createJobRepo } from "./src/server/archive/job-repo.ts";
 import { createJobWorker } from "./src/server/archive/jobs.ts";
 import { createArchiveRepo } from "./src/server/archive/repo.ts";
 import { createDb } from "./src/server/db/client.ts";
+import { sweepMemex } from "./src/server/memex/gc.ts";
+import { createMemexRepo } from "./src/server/memex/repo.ts";
 import { sweepNotes } from "./src/server/notes/gc.ts";
 import { createNotesRepo } from "./src/server/notes/repo.ts";
 import { runMigrations } from "./src/server/db/migrate.ts";
@@ -78,8 +81,10 @@ async function dbReachable(): Promise<boolean | null> {
 }
 
 const notes = { repo: createNotesRepo(db) };
+// The memex keeps its own files (images, SVGs, drawings), apart from the archive's.
+const memex = { repo: createMemexRepo(db), blobs: createBlobStore(join(stateDir, "memex")) };
 
-const app = createApp({ tokenOk, dbReachable, log, archive, notes });
+const app = createApp({ tokenOk, dbReachable, log, archive, notes, memex });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port: PORT }, () => {
   log.info({ host: HOST, port: PORT }, "listening");
@@ -94,6 +99,9 @@ setInterval(() => {
   });
   sweepNotes({ ...notes, log }).catch((err: unknown) => {
     log.error({ err }, "notes gc failed");
+  });
+  sweepMemex({ ...memex, log }).catch((err: unknown) => {
+    log.error({ err }, "memex gc failed");
   });
 }, HOUR).unref();
 

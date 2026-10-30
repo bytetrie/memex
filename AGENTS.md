@@ -17,9 +17,10 @@ Design notes for upcoming features live in [ideas/](ideas/).
 | UI | React 19 + Mantine 9 | `web/src/` |
 | Routing | TanStack Router, code-based route tree | `web/src/router.tsx` |
 | Notes editor | Tiptap 3 (MIT community packages) for pages; Excalidraw 0.18 for drawings; both lazy chunks | `web/src/modules/notes/editor/`, `web/src/modules/notes/drawing/` |
+| Memex editor | Plain DOM + pointer events; Tiptap for text boxes and Excalidraw for the drawing scratch pad (lazy); own QR encoder | `web/src/modules/memex/` |
 | Bundler | Vite, builds `web/` into `static/` | `vite.config.ts` |
 | Icons | Font Awesome glyphs built into a font by Fontello | `web/icons/fontello.json` |
-| Text font | TeX Gyre Heros as WOFF2 | `font/texgyre/` → `web/public/fonts/` |
+| Text font | TeX Gyre Heros as WOFF2 (Termes and Cursor too, for memex text) | `font/texgyre/` → `web/public/fonts/` |
 | Package manager | pnpm (lockfile committed) | `package.json` |
 | System packages | Debian apt, synced by `scripts/sync-env.sh` | `infra/apt-packages.txt` |
 | Unit + integration tests | vitest (integration on the `memex_test` database) | `vitest.config.ts`, `src/**/*.test.ts`, `scripts/**/*.test.ts` |
@@ -40,6 +41,8 @@ src/shared/archive*.ts    the archive's schemas; archive-types.ts holds the type
 src/shared/runners.ts     the app <-> runner protocol (requests, events, ports)
 src/shared/vtt.ts         WebVTT -> transcript cues (server search text, browser transcript)
 src/shared/notes*.ts      notes API shapes (notes.ts); notes-doc.ts: node names, DocSchema, analyzeDoc()
+src/shared/memex*.ts      memex API shapes (memex.ts); memex-doc.ts: page format, element kinds, effects,
+                          PageDocSchema, analyzePageDoc()
 src/shared/tags.ts        the tag rule shared by archive and notes
 src/server/app.ts         Hono routes (createApp); exports AppType; request log, errors, /openapi.json
 src/server/validate.ts    validate(target, schema) middleware (also feeds the OpenAPI spec)
@@ -52,6 +55,8 @@ src/server/archive/       the archive: ports.ts (interfaces), repo.ts (drizzle),
                           http.ts, types/ (one handler per archive type + registry);
                           jobs: job-repo.ts, job-routes.ts, jobs.ts (the worker)
 src/server/notes/         notes: ports.ts, repo.ts (drizzle), routes.ts, gc.ts (detached drawings)
+src/server/memex/         memex: ports.ts, repo.ts (drizzle), routes.ts, sniff.ts (asset types from bytes),
+                          gc.ts (detached assets)
 src/server/node/          node-only implementations passed in through AppDeps (blob-store.ts,
                           incoming.ts, runner-client.ts); child-process.ts, the only place
                           processes start (scripts and runners use it)
@@ -64,12 +69,15 @@ web/src/router.tsx        route tree (every route listed once)
 web/src/root.tsx          root route: Shell, not-found and error pages
 web/src/nav.ts            sidebar entries (route, label, icon)
 web/src/api.ts            typed Hono client + fetch helpers
+web/src/autosave.ts       versioned autosave of a page (notes and memex); SaveStatus in components/
 web/src/theme.ts          Mantine theme (plain data)
 web/src/components/       shared components (Shell = sidebar layout)
 web/src/modules/<id>/     one folder per sidebar component (route.tsx, ...)
 web/src/modules/archive/  list.tsx, entry.tsx, new.tsx, JobList.tsx + types/ (one add form per archive type)
-web/src/modules/notes/    layout.tsx (pane), page.tsx, autosave.ts, editor/ (Tiptap: extensions.ts,
+web/src/modules/notes/    layout.tsx (pane), page.tsx, editor/ (Tiptap: extensions.ts,
                           nodes/, menus), embeds/ (one per archive type), drawing/ (Excalidraw chunk)
+web/src/modules/memex/    layout.tsx (pane), page.tsx (editor), doc/ (store, commands), canvas/, kinds/,
+                          effects/, render/, output/ (print view, imposition, HTML export); see "Memex"
 web/src/pages/            routes that are not sidebar components (home)
 web/src/icons/            Icon component + GENERATED icons.css, names.ts
 web/public/fonts/         GENERATED woff2 files (committed)
@@ -214,6 +222,9 @@ HTML. Consequences:
   and its esm.sh fallback is rewritten at build (`vite.config.ts`), and its image export (which
   needs `'unsafe-eval'`) is hidden. Runtime injections like these only show in the browser:
   `pnpm check:csp` renders on the server, so the e2e console check is what catches them.
+- zod probes for `new Function` when a schema is created unless jitless mode is already on, so
+  `vite.config.ts` keeps zod and `web/src/zod-config.ts` in one chunk that runs first. Don't move
+  the config out of it, or schemas in a shared chunk trip the CSP (ideas/printable.md).
 
 ## Recipes
 
@@ -435,6 +446,85 @@ Example: a `callout` block.
 `entry` (`TextEmbed` reads a file excerpt, `VideoEmbed` reuses the archive's player). It mounts only
 near the viewport and stays mounted. Read files with `getFileText` / `fileUrl`; never render a
 file's content as HTML.
+
+## Memex
+
+The memex (`/memex` in the app) makes printable pages by hand: US Letter, Half or Quarter Letter
+with a 0.25, 0.5 or 1 in margin, holding text boxes (sans, serif or mono), images, SVGs, drawings
+from an Excalidraw scratch pad, QR codes and empty frames to fill, in layers, with grayscale and
+halftone effects. Pages print one per sheet or as copies on Letter (2 or 4 up), save as PDF from
+the print dialog, or download as one HTML file that is a flowing web page on screen and the sheets
+in print. Design and every decision: [ideas/printable.md](ideas/printable.md).
+
+- **A separate system**: `memex_*` tables and its own blob store (`$STATE_DIRECTORY/memex/`). Its
+  files are *assets*, never archive entries; don't write memex data into the archive or notes.
+- **Agents**: the API is under `/api/memex` (pages, tags, assets; see `/api/openapi.json`). A page's
+  `doc` is `{ format, grid, elements }` (`PageDocSchema` in `src/shared/memex-doc.ts`); geometry is
+  in points from the top-left corner and `elements` is the z-order, back first. Saving needs the
+  page's `version` as `baseVersion` (409 otherwise). To place a file, `PUT /api/memex/assets` with
+  the raw bytes and use the returned `sha256` as the element's `asset`; the server decides the type
+  from the bytes and refuses what isn't PNG, JPEG, GIF, WebP, AVIF, SVG or an Excalidraw scene.
+- **The doc is the source of truth**: the text index and `memex_page_assets` are rebuilt from it by
+  `analyzePageDoc()` on every save. Assets no page uses are detached and swept after a day.
+- **SVG is served from our origin** (as an attachment, with a sandboxing CSP, shown only through
+  `<img>`, sanitised on both sides). Keep all three layers; don't render an SVG asset inline or
+  through `<object>`/`<iframe>`, and don't add a way to serve one as a document.
+- **Three registries** keep it open for the planned features (charts, riso ink layers, palette
+  halftones, e-reader export): element kinds, effects and outputs. The recipes below.
+- **Rendering is inline styles in `pt`** (`render/units.ts`, `render/PageRender.tsx`), so the
+  editor, the print view and the exported HTML draw the same thing at physical size, and the HTML
+  file needs no app stylesheet. Use class names only for editor chrome. The HTML's screen view
+  (`render/FlowRender.tsx`) is inline styles too; a new kind needs a sensible flowing form there.
+- **SVG work is text, not DOM**: don't parse SVG with `DOMParser` or set `style` attributes on SVG
+  elements, even detached ones: both log CSP violations (`kinds/svg/sanitize.ts` is a tokenizer;
+  `kinds/excalidraw/render.ts` explains its stand-in attribute). An SVG asset must be
+  self-contained: fonts embedded as `data:` URLs (the `excalidraw-fonts` plugin in
+  `vite.config.ts` lists Excalidraw's subsets).
+- **Frames**: anything new goes through `insert.ts`, which fills the selected (or dropped-on)
+  empty frame, fitted inside it at its place in the layers, or else lands at its natural size.
+- **Editor state is outside React** (`doc/store.ts`): change the doc only with `store.commit(...)`
+  of a command from `doc/commands.ts` (one undo step; pass `merge` for typing into a field), and
+  read it with `useStore` / `useElement` selectors so a drag re-renders only what moves.
+- **Printing**: one named `@page` per sheet size and orientation is written out in
+  `output/Print.module.css` and `output/export.css` (keep them in step); a new sheet size needs a
+  rule in both. e2e checks the PDF's page sizes.
+- e2e tests title their pages `e2e-<random>` and delete them afterwards.
+
+### Add an element kind
+Example: a `chart`.
+1. `src/shared/memex-doc.ts`: a schema built on `BaseElementSchema` with `kind: z.literal("chart")`,
+   added to `ELEMENT_KINDS` and the `ElementSchema` union; if it uses assets, report them in
+   `analyzePageDoc()`; list it in `EFFECTS[...].kinds` for the effects that apply.
+2. `web/src/modules/memex/kinds/index.tsx`: a label and icon in `KINDS`, and a case in
+   `ElementBody` that draws it filling its box (inline styles, no HTML strings). tsc asks for both.
+3. Its settings: a case in `Inspector.tsx` (`ElementSettings`) next to `TextSettings` /
+   `MediaSettings`.
+4. How it is made: a toolbar button in `page.tsx`, or a case in `paste.ts`; either way through
+   `insert.ts` (`commitElements`), so it can fill an empty frame. Add a "… here" button to
+   `FrameSettings` in `Inspector.tsx` if it should be offered there.
+5. Its web form: `render/FlowRender.tsx` (`FlowItem`) draws text flowing and everything else at its
+   proportions; give it its own case if neither fits.
+6. Tests: `src/shared/memex-doc.test.ts`, `web/src/modules/memex/memex.test.ts` for pure parts, a
+   step in `e2e/memex.spec.ts`. Add one to the fixture page in `scripts/check-csp.ts`.
+
+### Add an effect
+Example: a palette halftone.
+1. `src/shared/memex-doc.ts`: its params schema in the `EffectSchema` union, its type in
+   `EFFECT_TYPES`, and a label and the kinds it applies to in `EFFECTS`.
+2. `web/src/modules/memex/effects/index.tsx`: `create` (defaults) and a `Params` editor in
+   `EFFECT_UI`, and a case in `EffectParams`.
+3. How it draws: CSS it can do in `frameStyle()` (`render/units.ts`), or, like halftone, a renderer
+   used by `MediaBody` (`kinds/index.tsx`). Pixel work belongs in a pure function with a test
+   (`effects/halftone.ts`); anything that runs asynchronously must count itself like
+   `Halftone.tsx` does (`whenHalftonesDone`), so the HTML export waits for it.
+
+### Add an output
+Example: an e-reader export. Outputs act on the print view (`output/PrintView.tsx`), which has the
+chosen pages, in order, laid out by `impose()`.
+1. A pure layout step if it needs one (next to `output/impose.ts`, with a test).
+2. A button in the print view's bar that runs it, like "Download HTML" (`output/exportHtml.ts`:
+   read the rendered DOM, never assign HTML strings into the page, download a `Blob`).
+3. A new sheet size: rules in `Print.module.css` and `export.css`, and an e2e check of the PDF.
 
 ## Infrastructure notes
 - `infra/Caddyfile` is project-owned (`caddy.manage_caddyfile = false` in

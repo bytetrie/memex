@@ -53,10 +53,38 @@ export function rememberPosition(key: string, t: number, duration: number, store
   }
 }
 
+// Follows one video's playback and stores where it is. Only a video that has played and still has
+// its media counts: nothing is written before the first play (loading a page never overwrites the
+// stored position), and once the player is torn down (hls.js's destroy() reloads the element, back
+// at 0 with no duration) the last good reading is what gets stored, not that 0, which would erase it.
+export function createPositionTracker(key: string, store = browserStore()) {
+  let started = false;
+  let latest: { t: number; duration: number } | null = null;
+  let lastWrite = 0;
+  const write = () => {
+    if (latest) rememberPosition(key, latest.t, latest.duration, store);
+  };
+  return {
+    played() {
+      started = true;
+    },
+    // A reading from the element; `ready` is whether it still has its media (readyState >= metadata).
+    observe(t: number, duration: number, ready: boolean) {
+      if (started && ready) latest = { t, duration };
+    },
+    // Stores the latest reading: at most every few seconds unless `now` (pause, seek, leaving).
+    save(now = false) {
+      const at = Date.now();
+      if (!now && at - lastWrite < SAVE_EVERY_MS) return;
+      lastWrite = at;
+      write();
+    },
+  };
+}
+
 // Remembers the video's position while it plays (every few seconds, on pause, seek, end, leaving
 // the page or unmounting) and returns where to offer resuming: what was stored when the block
-// mounted, until playback reaches it or dismiss() is called. Nothing is written before the video
-// has played, so loading the page never overwrites the stored position.
+// mounted, until playback reaches it or dismiss() is called.
 export function useResumePosition(videoRef: RefObject<HTMLVideoElement | null>, key: string | null) {
   const [offer, setOffer] = useState(() => ({ key, at: key ? readPosition(key) : null }));
   let current = offer;
@@ -69,32 +97,34 @@ export function useResumePosition(videoRef: RefObject<HTMLVideoElement | null>, 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !key) return;
-    let started = false;
-    let last = 0;
-    const save = () => {
-      if (started) rememberPosition(key, video.currentTime, video.duration);
+    const tracker = createPositionTracker(key);
+    const observe = () => {
+      tracker.observe(video.currentTime, video.duration, video.readyState >= HTMLMediaElement.HAVE_METADATA);
+    };
+    const saveNow = () => {
+      observe();
+      tracker.save(true);
     };
     const onPlay = () => {
-      started = true;
+      tracker.played();
+      observe();
     };
     const onTime = () => {
       setOffer((o) => (o.at !== null && video.currentTime >= o.at ? { ...o, at: null } : o));
-      const now = Date.now();
-      if (now - last >= SAVE_EVERY_MS) {
-        last = now;
-        save();
-      }
+      observe();
+      tracker.save();
     };
     video.addEventListener("play", onPlay);
     video.addEventListener("timeupdate", onTime);
-    for (const name of ["pause", "seeked", "ended"]) video.addEventListener(name, save);
-    window.addEventListener("pagehide", save);
+    for (const name of ["pause", "seeked", "ended"]) video.addEventListener(name, saveNow);
+    window.addEventListener("pagehide", saveNow);
     return () => {
-      save();
+      // No reading here: the player may already be torn down (its effect cleans up first).
+      tracker.save(true);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("timeupdate", onTime);
-      for (const name of ["pause", "seeked", "ended"]) video.removeEventListener(name, save);
-      window.removeEventListener("pagehide", save);
+      for (const name of ["pause", "seeked", "ended"]) video.removeEventListener(name, saveNow);
+      window.removeEventListener("pagehide", saveNow);
     };
   }, [videoRef, key]);
 

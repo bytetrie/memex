@@ -11,6 +11,8 @@ import { z } from "zod";
 import { HealthSchema, ModuleSchema, PlaceholderModuleIdSchema, type Health } from "../shared/api.ts";
 import { createArchiveRoutes } from "./archive/routes.ts";
 import { ArchiveError, type ArchiveDeps, type ArchiveErrorCode } from "./archive/ports.ts";
+import { MemexError, type MemexDeps, type MemexErrorCode } from "./memex/ports.ts";
+import { createMemexRoutes } from "./memex/routes.ts";
 import { modules } from "./modules.ts";
 import { NotesError, type NotesDeps, type NotesErrorCode } from "./notes/ports.ts";
 import { createNotesRoutes } from "./notes/routes.ts";
@@ -26,6 +28,7 @@ export type AppDeps = {
   log: Logger;
   archive: ArchiveDeps;
   notes: NotesDeps;
+  memex: MemexDeps;
 };
 
 const archiveErrorStatus = {
@@ -43,6 +46,13 @@ const notesErrorStatus = {
   not_found: 404,
   version_conflict: 409,
 } as const satisfies Record<NotesErrorCode, number>;
+
+const memexErrorStatus = {
+  not_found: 404,
+  version_conflict: 409,
+  invalid: 400,
+  too_large: 413,
+} as const satisfies Record<MemexErrorCode, number>;
 
 // JSON bodies are parsed in memory, so they get a small limit: the biggest one is a `text` entry
 // (TEXT_MAX_LENGTH characters, a few bytes each when escaped). Files go through PUT /archive/blobs.
@@ -86,6 +96,10 @@ export function createApp(deps: AppDeps) {
       if (err.code === "version_conflict") return c.json({ error: err.message, version: err.detail }, notesErrorStatus[err.code]);
       return c.json({ error: err.message }, notesErrorStatus[err.code]);
     }
+    if (err instanceof MemexError) {
+      if (err.code === "version_conflict") return c.json({ error: err.message, version: err.detail }, memexErrorStatus[err.code]);
+      return c.json({ error: err.message }, memexErrorStatus[err.code]);
+    }
     // e.g. a request body that is not valid JSON
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
     c.var.log.error({ err }, "unhandled error"); // set by the first middleware, before anything can throw
@@ -107,6 +121,7 @@ export function createApp(deps: AppDeps) {
     )
     .route("/archive", createArchiveRoutes(deps.archive))
     .route("/notes", createNotesRoutes(deps.notes))
+    .route("/memex", createMemexRoutes(deps.memex))
     .get(
       "/openapi.json",
       docs("app", "OpenAPI description of this API", { 200: { description: "OpenAPI 3.1 document" } }),

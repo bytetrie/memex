@@ -1,9 +1,11 @@
 // "Search and select" for archive entries, opened from the / menu: a dialog with a search box and
 // the matching entries; choosing one resolves the promise pickArchive() returned.
+// Keyboard: ArrowDown leaves the search box for the results, ArrowUp/ArrowDown (Home/End) move
+// through them and back up to the box, Enter picks (in the box: the first result).
 // Modal with lockScroll={false}: Mantine's scroll lock injects a <style> tag, which the CSP blocks.
 
 import { Modal, Text, TextInput, UnstyledButton } from "@mantine/core";
-import { useEffect, useState, useSyncExternalStore, type ReactElement } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactElement, type RefObject } from "react";
 import type { EntrySummary } from "../../../../../src/shared/archive.ts";
 import { listEntries } from "../../../api.ts";
 import { Icon } from "../../../icons/Icon.tsx";
@@ -45,7 +47,21 @@ export function createArchivePicker() {
 
 export type ArchivePickerStore = ReturnType<typeof createArchivePicker>;
 
-function Results({ q, onPick }: { q: string; onPick: (entry: EntrySummary) => void }): ReactElement {
+const resultButtons = (list: HTMLElement | null) => [...(list?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+
+// Moves focus between the results; ArrowUp on the first goes back to the search box.
+function moveInList(e: KeyboardEvent<HTMLUListElement>, input: RefObject<HTMLInputElement | null>) {
+  const buttons = resultButtons(e.currentTarget);
+  const at = buttons.findIndex((b) => b === document.activeElement);
+  if (at < 0) return;
+  const next = e.key === "ArrowDown" ? at + 1 : e.key === "ArrowUp" ? at - 1 : e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : null;
+  if (next === null) return;
+  e.preventDefault();
+  if (next < 0) input.current?.focus();
+  else buttons[Math.min(next, buttons.length - 1)]?.focus();
+}
+
+function Results({ q, onPick, listRef, inputRef }: { q: string; onPick: (entry: EntrySummary) => void; listRef: RefObject<HTMLUListElement | null>; inputRef: RefObject<HTMLInputElement | null> }): ReactElement {
   const [items, setItems] = useState<EntrySummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -73,7 +89,14 @@ function Results({ q, onPick }: { q: string; onPick: (entry: EntrySummary) => vo
   if (items === null) return <Text c="dimmed">Searching…</Text>;
   if (items.length === 0) return <Text c="dimmed">No entries match.</Text>;
   return (
-    <ul className={classes.pickerList} aria-label="Archive entries">
+    <ul
+      ref={listRef}
+      className={classes.pickerList}
+      aria-label="Archive entries"
+      onKeyDown={(e) => {
+        moveInList(e, inputRef);
+      }}
+    >
       {items.map((entry) => (
         <li key={entry.id}>
           <UnstyledButton
@@ -101,6 +124,8 @@ function Results({ q, onPick }: { q: string; onPick: (entry: EntrySummary) => vo
 export function ArchivePicker({ store }: { store: ArchivePickerStore }): ReactElement {
   const request = useSyncExternalStore(store.subscribe, store.get);
   const [q, setQ] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   return (
     <Modal
       opened={request !== null}
@@ -116,6 +141,18 @@ export function ArchivePicker({ store }: { store: ArchivePickerStore }): ReactEl
         placeholder="Words or #tags"
         value={q}
         data-autofocus
+        ref={inputRef}
+        onKeyDown={(e) => {
+          const first = resultButtons(listRef.current)[0];
+          if (!first) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            first.focus();
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            first.click();
+          }
+        }}
         onChange={(e) => {
           setQ(e.currentTarget.value);
         }}
@@ -124,6 +161,8 @@ export function ArchivePicker({ store }: { store: ArchivePickerStore }): ReactEl
       {request && (
         <Results
           q={q}
+          listRef={listRef}
+          inputRef={inputRef}
           onPick={(entry) => {
             store.close(entry);
             setQ("");

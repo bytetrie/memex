@@ -1,15 +1,9 @@
-// Memex: placeholder page. Replace ModulePage with this component's own UI.
+// Memex: printable pages built by hand, printed or exported (design: ideas/printable.md).
+// The print view is its own route under the root (no pane), at /memex/print.
 
-import { createRoute } from "@tanstack/react-router";
-import { getModule } from "../../api.ts";
-import { ModulePage } from "../../components/ModulePage.tsx";
-import { rootRoute } from "../../root.tsx";
+import { memexIndexRoute } from "./index.tsx";
+import { memexLayout } from "./layout.tsx";
+import { memexPageRoute } from "./page.tsx";
 
-export const memexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/memex",
-  loader: () => getModule("memex"),
-  component: function MemexPage() {
-    return <ModulePage module={memexRoute.useLoaderData()} />;
-  },
-});
+export { memexPrintRoute } from "./output/PrintView.tsx";
+export const memexRoute = memexLayout.addChildren([memexIndexRoute, memexPageRoute]);

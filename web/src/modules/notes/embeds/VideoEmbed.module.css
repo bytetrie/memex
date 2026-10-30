@@ -28,6 +28,23 @@
   gap: rem(2px);
 }
 
+/* Rename and delete show while the bookmark is hovered or has focus (always on touch screens). */
+.actions {
+  display: flex;
+  gap: rem(2px);
+}
+
+@media (hover: hover) {
+  .actions {
+    opacity: 0;
+  }
+
+  .item:hover .actions,
+  .item:focus-within .actions {
+    opacity: 1;
+  }
+}
+
 .jump {
   flex: 1;
   min-width: 0;

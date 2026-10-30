@@ -2,6 +2,7 @@
 // Every method rejects unless overridden; tsc lists what is missing when a port grows.
 
 import type { ArchiveRepo, BlobStore, IncomingStore, JobControl, JobRepo } from "../archive/ports.ts";
+import type { MemexRepo } from "../memex/ports.ts";
 import type { NotesRepo } from "../notes/ports.ts";
 
 const unused = (name: string) => () => Promise.reject(new Error(`stub: ${name} is not available`));
@@ -83,6 +84,23 @@ export function stubNotesRepo(overrides: Partial<NotesRepo> = {}): NotesRepo {
     getDrawing: unused("notes.getDrawing"),
     saveDrawing: unused("notes.saveDrawing"),
     deleteDetachedDrawings: unused("notes.deleteDetachedDrawings"),
+    ...overrides,
+  };
+}
+
+export function stubMemexRepo(overrides: Partial<MemexRepo> = {}): MemexRepo {
+  return {
+    createPage: unused("memex.createPage"),
+    getPage: unused("memex.getPage"),
+    listPages: unused("memex.listPages"),
+    savePage: unused("memex.savePage"),
+    setTags: unused("memex.setTags"),
+    deletePage: unused("memex.deletePage"),
+    tagCounts: unused("memex.tagCounts"),
+    registerAsset: unused("memex.registerAsset"),
+    getAsset: unused("memex.getAsset"),
+    existingAssets: unused("memex.existingAssets"),
+    deleteDetachedAssets: unused("memex.deleteDetachedAssets"),
     ...overrides,
   };
 }

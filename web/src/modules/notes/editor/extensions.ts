@@ -4,7 +4,7 @@
 //
 // Performance rules the extensions follow (ideas/notes.md):
 // - text blocks (paragraphs, headings, lists, quotes, code) have no node views: ProseMirror
-//   renders them as plain DOM;
+//   renders them as plain DOM (code's colours are decorations, codeHighlight.ts);
 // - inline links are plain DOM node views (nodes/links.ts);
 // - only heavy embeds are React node views, memoised so typing never re-renders them
 //   (nodes/ArchiveEmbed.tsx, nodes/Drawing.tsx).
@@ -15,6 +15,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { BLOCK_TYPES } from "../../../../../src/shared/notes-doc.ts";
 import { BlockFlash } from "./blockFlash.ts";
 import { CodeBlockExit } from "./codeBlockExit.ts";
+import { CodeHighlight } from "./codeHighlight.ts";
 import type { NotesEditorContext } from "./context.ts";
 import { archiveEmbedNode } from "./nodes/ArchiveEmbed.tsx";
 import { Drawing } from "./nodes/Drawing.tsx";
@@ -28,10 +29,13 @@ export function createExtensions(ctx: NotesEditorContext) {
     StarterKit.configure({
       // Links in text: typed or pasted URLs become links; a click doesn't leave the page while editing.
       link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
+      // Tab / Shift-Tab indent and dedent in code (Enter's indent is codeBlockExit.ts).
+      codeBlock: { enableTabIndentation: true, tabSize: 2 },
     }),
     // [text](address), Mod-K, Ctrl/Cmd-click (webLinks.ts).
     webLinks(ctx),
     CodeBlockExit,
+    CodeHighlight,
     BlockFlash,
     // Only used to parse pasted markdown (paste.ts); pages are stored as ProseMirror JSON.
     Markdown,

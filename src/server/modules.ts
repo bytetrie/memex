@@ -15,6 +15,5 @@ const dummy = (id: PlaceholderModuleId, title: string, description: string): Mod
 
 export const modules: Record<PlaceholderModuleId, Module> = {
   chat: dummy("chat", "Chat", "Conversations."),
-  memex: dummy("memex", "Memex", "Associative trails linking everything else."),
   external: dummy("external", "External", "Links out to other services."),
 };

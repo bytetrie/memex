@@ -16,6 +16,8 @@ import type { ArchiveDeps } from "../archive/ports.ts";
 import type { Db } from "../db/client.ts";
 import { createBlobStore } from "../node/blob-store.ts";
 import { createIncomingStore } from "../node/incoming.ts";
+import type { MemexDeps } from "../memex/ports.ts";
+import { createMemexRepo } from "../memex/repo.ts";
 import type { NotesDeps } from "../notes/ports.ts";
 import { createNotesRepo } from "../notes/repo.ts";
 import type { Logger } from "../types.ts";
@@ -28,6 +30,7 @@ export type Harness = {
   db: Db;
   archive: ArchiveDeps;
   notes: NotesDeps;
+  memex: MemexDeps;
   dir: string;
   // The runners' output folder (a temp dir); fake runners write their files here.
   incomingDir: string;
@@ -45,7 +48,7 @@ export type Harness = {
 
 export function useHarness(): Harness {
   let connection: ReturnType<typeof connectTestDb> | undefined;
-  let current: Pick<Harness, "archive" | "notes" | "dir" | "app" | "incomingDir" | "worker"> | undefined;
+  let current: Pick<Harness, "archive" | "notes" | "memex" | "dir" | "app" | "incomingDir" | "worker"> | undefined;
   const runners = fakeRunners();
   const inTest = <T>(value: T | undefined): T => {
     if (value === undefined) throw new Error("the harness is only ready inside a test");
@@ -67,7 +70,8 @@ export function useHarness(): Harness {
     const worker = createJobWorker({ ...base, runners: runners.client, log: silentLogger });
     const archive: ArchiveDeps = { ...base, worker };
     const notes: NotesDeps = { repo: createNotesRepo(db) };
-    current = { dir, incomingDir, worker, archive, notes, app: createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(true), log: silentLogger, archive, notes }) };
+    const memex: MemexDeps = { repo: createMemexRepo(db), blobs: createBlobStore(join(dir, "memex")) };
+    current = { dir, incomingDir, worker, archive, notes, memex, app: createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(true), log: silentLogger, archive, notes, memex }) };
   });
   afterEach(async () => {
     const { worker, dir } = inTest(current);
@@ -86,6 +90,9 @@ export function useHarness(): Harness {
     },
     get notes() {
       return inTest(current).notes;
+    },
+    get memex() {
+      return inTest(current).memex;
     },
     get dir() {
       return inTest(current).dir;

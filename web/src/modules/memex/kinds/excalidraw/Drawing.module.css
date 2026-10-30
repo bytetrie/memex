@@ -1,0 +1,15 @@
+/* The scratch pad dialog (DrawingDialog.tsx): Excalidraw needs a container with a real height. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - rem(64px));
+}
+
+.canvas {
+  flex: 1;
+  min-height: 0;
+  border: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-sm);
+  overflow: hidden;
+}

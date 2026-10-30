@@ -15,8 +15,8 @@ export type Health = z.infer<typeof HealthSchema>;
 export const ModuleIdSchema = z.enum(["archive", "notes", "chat", "memex", "external"]);
 export type ModuleId = z.infer<typeof ModuleIdSchema>;
 
-// Components that still serve placeholder data from /api/modules/:id (archive and notes have real backends).
-export const PlaceholderModuleIdSchema = ModuleIdSchema.exclude(["archive", "notes"]);
+// Components that still serve placeholder data from /api/modules/:id (archive, notes and memex have real backends).
+export const PlaceholderModuleIdSchema = ModuleIdSchema.exclude(["archive", "notes", "memex"]);
 export type PlaceholderModuleId = z.infer<typeof PlaceholderModuleIdSchema>;
 
 export const ModuleItemSchema = z.object({

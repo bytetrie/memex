@@ -1,0 +1,141 @@
+/* The editing canvas (PageCanvas.tsx). The page is drawn at its physical size in pt and scaled
+   with a transform (set through the style prop); `holder` takes the scaled size so the area
+   scrolls correctly. */
+
+.area {
+  min-width: 0;
+  min-height: rem(320px);
+  overflow: auto;
+  padding: var(--mantine-spacing-lg);
+  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-8));
+  border-radius: var(--mantine-radius-md);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.holder {
+  flex: none;
+  position: relative;
+}
+
+.page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 rem(1px) rem(4px) rgba(0, 0, 0, 0.25);
+  touch-action: none;
+}
+
+.margin {
+  position: absolute;
+  border: rem(1px) dashed rgba(34, 139, 230, 0.45);
+  pointer-events: none;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  color: rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.element {
+  cursor: move;
+  user-select: none;
+  outline: none;
+
+  &:focus-visible {
+    outline: rem(2px) solid var(--mantine-color-blue-5);
+    outline-offset: rem(1px);
+  }
+}
+
+.element[data-locked] {
+  pointer-events: none;
+}
+
+.element[data-editing] {
+  cursor: text;
+  user-select: text;
+  outline: rem(1px) solid var(--mantine-color-blue-5);
+  z-index: 1;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.selected {
+  position: absolute;
+  outline: rem(1px) solid var(--mantine-color-blue-6);
+}
+
+.selected[data-locked] {
+  outline-style: dashed;
+  outline-color: var(--mantine-color-gray-6);
+}
+
+.handle {
+  position: absolute;
+  pointer-events: auto;
+  background: #fff;
+  border: rem(1px) solid var(--mantine-color-blue-6);
+}
+
+.handle[data-handle="nw"],
+.handle[data-handle="se"] {
+  cursor: nwse-resize;
+}
+
+.handle[data-handle="ne"],
+.handle[data-handle="sw"] {
+  cursor: nesw-resize;
+}
+
+.handle[data-handle="n"],
+.handle[data-handle="s"] {
+  cursor: ns-resize;
+}
+
+.handle[data-handle="e"],
+.handle[data-handle="w"] {
+  cursor: ew-resize;
+}
+
+.guideX,
+.guideY {
+  position: absolute;
+  background: var(--mantine-color-pink-6);
+}
+
+.guideX {
+  top: 0;
+  bottom: 0;
+  width: rem(1px);
+}
+
+.guideY {
+  left: 0;
+  right: 0;
+  height: rem(1px);
+}
+
+/* The frame tool (Add image): crosshair over the whole page, and the frame being drawn. */
+.toolLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: crosshair;
+}
+
+.band {
+  position: absolute;
+  border: rem(1px) dashed var(--mantine-color-blue-6);
+  background: rgba(34, 139, 230, 0.1);
+}

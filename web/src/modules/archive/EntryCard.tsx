@@ -26,19 +26,19 @@ export function EntryCard({ entry }: { entry: EntrySummary }) {
 
   const text = (
     <div className={classes.cardText}>
-      <AnchorLink to="/archive/e/$entryId" params={{ entryId: entry.id }} fw={700}>
+      <AnchorLink to="/archive/e/$entryId" params={{ entryId: entry.id }} fw={700} size="sm" className={classes.cardTitle}>
         {entry.title}
       </AnchorLink>
       <div className={classes.meta}>
-        <Badge variant="light" leftSection={<Icon name={archiveTypeUi[entry.type].icon} />}>
+        <Badge size="sm" variant="light" leftSection={<Icon name={archiveTypeUi[entry.type].icon} />}>
           {archiveTypeUi[entry.type].label}
         </Badge>
         {entry.tags.map((tag) => (
-          <AnchorLink key={tag} to="/archive" search={{ q: tagToken(tag) }} size="sm" aria-label={`Tag ${tag}`}>
+          <AnchorLink key={tag} to="/archive" search={{ q: tagToken(tag) }} size="xs" aria-label={`Tag ${tag}`}>
             <Icon name="tag" /> {tag}
           </AnchorLink>
         ))}
-        <Text size="sm" c="dimmed">
+        <Text size="xs" c="dimmed">
           {formatDate(entry.createdAt)} · {entry.fileCount} {entry.fileCount === 1 ? "file" : "files"}
         </Text>
       </div>
@@ -47,13 +47,13 @@ export function EntryCard({ entry }: { entry: EntrySummary }) {
 
   if (!still) {
     return (
-      <Card component="li" withBorder padding="sm">
+      <Card component="li" withBorder padding="xs">
         {text}
       </Card>
     );
   }
   return (
-    <Card component="li" withBorder padding="sm" onMouseEnter={start} onMouseLeave={stop} onFocus={start} onBlur={stop}>
+    <Card component="li" withBorder padding="xs" onMouseEnter={start} onMouseLeave={stop} onFocus={start} onBlur={stop}>
       <div className={classes.cardBody}>
         <img
           className={classes.cardThumb}

@@ -154,6 +154,12 @@ test("download a video, play it, see its card preview, resume and bookmark it in
     v.pause();
   });
 
+  // Leaving the page inside the app unmounts the player; the position survives that too.
+  await page.getByRole("navigation", { name: "App components" }).getByRole("link", { name: "Archive" }).click();
+  await expect(page.getByRole("heading", { name: "Archive", level: 1 })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("button", { name: /^Resume at 0:0[67]$/ })).toBeVisible();
+
   await page.getByRole("button", { name: "Add bookmark" }).click();
   await page.getByRole("textbox", { name: /^Bookmark label/ }).fill("e2e intro");
   await page.getByRole("button", { name: "Save", exact: true }).click();

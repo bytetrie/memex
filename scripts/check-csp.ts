@@ -8,9 +8,10 @@
 import { createServer } from "vite";
 import { z } from "zod";
 import { createApp } from "../src/server/app.ts";
-import { idleWorker, stubBlobs, stubIncoming, stubJobs, stubNotesRepo, stubRepo } from "../src/server/testing/stubs.ts";
+import { idleWorker, stubBlobs, stubIncoming, stubJobs, stubMemexRepo, stubNotesRepo, stubRepo } from "../src/server/testing/stubs.ts";
 import type { Job } from "../src/shared/archive-jobs.ts";
 import type { Entry } from "../src/shared/archive.ts";
+import type { MemexPage } from "../src/shared/memex.ts";
 import type { Page } from "../src/shared/notes.ts";
 
 // The archive routes render a fixture entry served from memory, so no database
@@ -114,7 +115,38 @@ const notes = {
     backlinks: () => Promise.resolve([{ pageId: PAGE_ID, pageTitle: page.title, blockId: "p", text: "See", targetBlockId: null }]),
   }),
 };
-const app = createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(null), log, archive, notes });
+// A memex page with every element kind and both effects, for the editor and the print view.
+const MEMEX_ID = "019a0000-0000-7000-8000-000000000006";
+const box = { x: 36, y: 36, w: 120, h: 80, rotation: 0, opacity: 1, hidden: false, locked: false, effects: [] };
+const memexPage: MemexPage = {
+  id: MEMEX_ID,
+  title: "Fixture sheet",
+  tags: ["fixture"],
+  version: 2,
+  createdAt: now,
+  updatedAt: now,
+  doc: {
+    format: { size: "half", orientation: "portrait", margin: 36 },
+    grid: { step: 9, show: true, snap: true },
+    elements: [
+      { ...box, id: "t", kind: "text", font: "serif", fontSize: 14, lineHeight: 1.2, align: "left", color: "#000000", content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hello", marks: [{ type: "bold" }, { type: "size", attrs: { pt: 24 } }] }] }] } },
+      { ...box, id: "i", kind: "image", asset: "c".repeat(64), fit: "contain", effects: [{ type: "grayscale" }] },
+      { ...box, id: "s", kind: "svg", asset: "d".repeat(64), fit: "contain", effects: [{ type: "halftone", cell: 6, angle: 45, shape: "circle", invert: false }] },
+      { ...box, id: "x", kind: "excalidraw", asset: "e".repeat(64), scene: "f".repeat(64), fit: "contain", rotation: 10, opacity: 0.5 },
+      { ...box, id: "q", kind: "qr", text: "https://app.memex", ecc: "M", color: "#000000", quiet: true },
+      { ...box, id: "f", kind: "frame" },
+    ],
+  },
+};
+const memex = {
+  repo: stubMemexRepo({
+    listPages: () => Promise.resolve({ items: [{ id: MEMEX_ID, title: memexPage.title, tags: memexPage.tags, format: memexPage.doc.format, snippet: "Hello", updatedAt: now }], nextCursor: null }),
+    tagCounts: () => Promise.resolve([{ tag: "fixture", count: 1 }]),
+    getPage: (id: string) => Promise.resolve(id === MEMEX_ID ? memexPage : null),
+  }),
+  blobs: stubBlobs(),
+};
+const app = createApp({ tokenOk: () => true, dbReachable: () => Promise.resolve(null), log, archive, notes, memex });
 const realFetch = globalThis.fetch;
 globalThis.fetch = (input, init) => {
   const url = input instanceof Request ? input.url : input.toString();
@@ -130,7 +162,7 @@ try {
       render: z.custom<(path: string) => Promise<string>>((v) => typeof v === "function", "render must be a function"),
     })
     .parse(await vite.ssrLoadModule("/src/csp-check.tsx"));
-  for (const path of [...mod.paths, "/archive/new/file", "/archive/new/text", "/archive/new/video", `/archive/e/${FIXTURE_ID}`, `/archive/e/${VIDEO_ID}`, `/notes/p/${PAGE_ID}`]) {
+  for (const path of [...mod.paths, "/archive/new/file", "/archive/new/text", "/archive/new/video", `/archive/e/${FIXTURE_ID}`, `/archive/e/${VIDEO_ID}`, `/notes/p/${PAGE_ID}`, `/memex/p/${MEMEX_ID}`, `/memex/print?pages=${MEMEX_ID}&layout=copies`, `/memex/print?pages=${MEMEX_ID}&view=web`]) {
     const html = await mod.render(path);
     const styles = [...html.matchAll(/<style[^>]*>[\s\S]*?<\/style>/g)].map((m) => m[0]);
     const firstStyle = styles[0];
